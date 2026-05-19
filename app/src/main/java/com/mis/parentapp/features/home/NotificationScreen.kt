@@ -67,30 +67,46 @@ fun NotificationScreen(
                 it.category.equals(selectedFilter, ignoreCase = true)
     }
 
-    // FIX: Scaffold and TopAppBar removed. Content fills parent directly.
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(modifier = Modifier.weight(1f)) {
-                NotificationFilterRow(
-                    selectedFilter = selectedFilter,
-                    onFilterClick = { selectedFilter = it }
-                )
-            }
-            // Retained screen-specific context menu action
-            IconButton(
-                onClick = { /* Menu */ },
-                modifier = Modifier.padding(end = 8.dp)
-            ) {
-                Icon(Icons.Default.MoreVert, contentDescription = "Menu")
-            }
-        }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Notifications", fontSize = 20.sp, fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { /* Menu */ }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Menu")
+                    }
+                }
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { paddingValues ->
+        Column(modifier = Modifier.padding(paddingValues)) {
+            NotificationFilterRow(
+                selectedFilter = selectedFilter,
+                onFilterClick = { selectedFilter = it }
+            )
+            
+            if (isLoading) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else if (errorMessage != null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(errorMessage ?: "", color = MaterialTheme.colorScheme.error)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val newOnes = filteredNotifications.filter { it.isNew }
+                    val earlierOnes = filteredNotifications.filter { !it.isNew }
 
         if (isLoading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
