@@ -10,7 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,14 +20,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import com.mis.parentapp.R
 import com.mis.parentapp.features.me.sections.SettingsSection
 import com.mis.parentapp.features.me.sections.YourEssentialsSection
+import com.mis.parentapp.navigation.Announcements
+import com.mis.parentapp.navigation.DataSafety
+import com.mis.parentapp.navigation.EditProfile
+import com.mis.parentapp.navigation.Feedbacks
+import com.mis.parentapp.navigation.Meeting
+import com.mis.parentapp.navigation.Messages
+import com.mis.parentapp.navigation.Preference
 import com.mis.parentapp.ui.theme.ParentAppTheme
-import com.mis.parentapp.utilities.bars.MeTopBar
 
 @Composable
-fun MeScreen(modifier: Modifier = Modifier) {
+fun MeScreen(modifier: Modifier = Modifier, navController: NavController? = null) {
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -47,7 +53,7 @@ fun MeScreen(modifier: Modifier = Modifier) {
                 ) {
                     // BACKGROUND IMAGE WITH ROUNDED BOTTOM
                     Image(
-                        painter = painterResource(id = R.drawable.bgpic),
+                        painter = painterResource(id = R.drawable.parent_pic),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
@@ -96,7 +102,7 @@ fun MeScreen(modifier: Modifier = Modifier) {
 
                         // CIRCLE PROFILE IMAGE
                         Image(
-                            painter = painterResource(id = R.drawable.student_image),
+                            painter = painterResource(id = R.drawable.parent_pic),
                             contentDescription = null,
                             modifier = Modifier
                                 .size(48.dp)
@@ -108,16 +114,28 @@ fun MeScreen(modifier: Modifier = Modifier) {
                 }
             }
             item {
-                YourEssentialsSection()
+                YourEssentialsSection(onCategoryClick = { title ->
+                    when (title) {
+                        "Messages" -> navController?.navigate(Messages)
+                        "Announcements" -> navController?.navigate(Announcements)
+                        "Meetings" -> navController?.navigate(Meeting)
+                        "Feedbacks" -> navController?.navigate(Feedbacks)
+                    }
+                })
             }
             item {
-                SettingsSection()
+                SettingsSection(onCategoryClick = { title ->
+                    when (title) {
+                        "Preferences" -> navController?.navigate(Preference)
+                        "Data safety" -> navController?.navigate(DataSafety)
+                        "Edit profile" -> navController?.navigate(EditProfile)
+                        "Sign out" -> { /* Handle sign out */ }
+                    }
+                })
             }
         }
     }
 }
-
-
 
 @Preview(showBackground = true, widthDp = 360)
 @Composable
