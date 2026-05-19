@@ -63,6 +63,11 @@ import com.mis.parentapp.navigation.RecentActivities
 import com.mis.parentapp.navigation.UpcomingEvents
 import com.mis.parentapp.shared.StudentSharedViewModel
 import com.mis.parentapp.ui.theme.AppTypes
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.runtime.rememberCoroutineScope
+import com.mis.parentapp.data.StudentWithSchedules
+import com.mis.parentapp.data.StudentsRepo
+import com.mis.parentapp.data.UserRepository
 import com.mis.parentapp.ui.theme.ColorsDefaultTheme
 import com.mis.parentapp.features.home.menu.EventCard
 import com.mis.parentapp.features.home.menu.EventDetailScreen
@@ -85,7 +90,7 @@ fun HomeScreen(
         ModalBottomSheet(
             onDismissRequest = { showSheet.value = false },
             sheetState = sheetState,
-            containerColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             HomeMenuDrawer(
                 onItemClick = { route ->
@@ -161,7 +166,7 @@ fun Body(
                 dashboardError?.let { message ->
                     Text(
                         text = message,
-                        color = Color.Red,
+                        color = MaterialTheme.colorScheme.error,
                         style = AppTypes.type_Body_Small,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
@@ -312,7 +317,7 @@ fun StudentSelectorItem(
     onClick: () -> Unit
 ) {
     val highlightColor = if (student.isPresent) {
-        ColorsDefaultTheme.color_Primary_green
+        MaterialTheme.colorScheme.primary
     } else {
         MaterialTheme.colorScheme.error
     }
@@ -413,7 +418,7 @@ fun StudentPresenceHeader(student: StudentEntity, isInClass: Boolean) {
                 modifier = Modifier
                     .requiredSize(110.dp)
                     .clip(CircleShape)
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.surface)
                     .padding(4.dp)
                     .clip(CircleShape),
                 contentScale = ContentScale.Crop
@@ -430,7 +435,7 @@ fun StudentPresenceHeader(student: StudentEntity, isInClass: Boolean) {
         ) {
             Text(
                 text = statusText,
-                color = Color.White,
+                color = if (student.isPresent) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onError,
                 style = AppTypes.type_Caption.copy(
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Black,
@@ -666,7 +671,7 @@ fun HomeMenuDrawer(onItemClick: (String) -> Unit) {
         Text(
             text = "Menu",
             style = AppTypes.type_H1,
-            color = Color(0xFF1B4D13),
+            color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
@@ -682,10 +687,10 @@ fun HomeMenuDrawer(onItemClick: (String) -> Unit) {
                 Text(
                     text = label,
                     style = AppTypes.type_H1.copy(fontSize = 18.sp),
-                    color = ColorsDefaultTheme.color_Surface_on_surface
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
-            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
         }
     }
 }

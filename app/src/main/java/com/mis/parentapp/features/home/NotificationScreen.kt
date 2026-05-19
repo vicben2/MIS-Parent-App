@@ -97,6 +97,8 @@ fun NotificationScreen(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
+                errorMessage != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(errorMessage ?: "", color = MaterialTheme.colorScheme.error)
             } else if (errorMessage != null) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(errorMessage ?: "", color = Color.Red)
