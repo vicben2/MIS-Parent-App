@@ -323,9 +323,21 @@ fun MainScreen() {
                 }
 
                 composable<Services> {
-                    ServicesScreen(studentVM = studentSharedViewModel)
+                    ServicesScreen(
+                        navController = navController,
+                        studentVM = studentSharedViewModel
+                    )
                 }
-                composable<Me> { MeScreen(navController = navController) }
+                composable<Me> { 
+                    MeScreen(
+                        navController = navController,
+                        onSignOut = {
+                            navController.navigate(SignIn(R.drawable.bgpic)) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    ) 
+                }
                 composable<Home> {
                     HomeScreen(
                         studentVM = studentSharedViewModel,
