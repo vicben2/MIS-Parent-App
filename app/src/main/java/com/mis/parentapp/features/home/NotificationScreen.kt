@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -47,7 +48,7 @@ fun NotificationScreen(
                         id = dto.id.toString(),
                         type = try { NotificationType.valueOf(dto.type.uppercase()) } catch (_: Exception) { NotificationType.ACTIVITY },
                         content = dto.text,
-                        category = dto.type.capitalize(),
+                        category = dto.type.replaceFirstChar { it.uppercase() },
                         timeAgo = dto.time,
                         isNew = dto.isNew,
                         gradientColors = if (dto.type.lowercase() == "event") listOf(Color(0xFFFFA726), Color(0xFFFF7043)) else null
@@ -67,7 +68,6 @@ fun NotificationScreen(
                 it.category.equals(selectedFilter, ignoreCase = true)
     }
 
-    // FIX: Scaffold and TopAppBar removed. Content fills parent directly.
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -98,7 +98,7 @@ fun NotificationScreen(
             }
         } else if (errorMessage != null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(errorMessage ?: "", color = Color.Red)
+                Text(errorMessage ?: "", color = MaterialTheme.colorScheme.error)
             }
         } else {
             LazyColumn(
