@@ -1,5 +1,6 @@
 package com.mis.parentapp.features.student.menu
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,18 +29,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mis.parentapp.data.CourseGrade
+import com.mis.parentapp.ui.theme.AppTypes
 import com.mis.parentapp.network.RetrofitInstance
 import com.mis.parentapp.shared.StudentSharedViewModel
 import com.mis.parentapp.ui.theme.ParentAppTheme
-import java.util.Locale
 
-// --- 1. THE WRAPPER ---
+// --- 1. THE WRAPPER (Integrated with Teammate's API Logic) ---
 @Composable
 fun MonitorAcademicScreen(
     studentVM: StudentSharedViewModel,
-    onBackClick: () -> Unit,
-    onMonitorAcademicClick: () -> Unit = {},
-    onTrackAttendanceClick: () -> Unit = {}
+    onBackClick: () -> Unit
 ) {
     val selectedStudent = studentVM.selectedStudent
     var grades by remember { mutableStateOf<List<CourseGrade>>(emptyList()) }
@@ -65,11 +65,9 @@ fun MonitorAcademicScreen(
 
     MonitorAcademicContent(
         grades = grades,
-        studentLabel = selectedStudent?.let { "${it.name} ${it.section}" } ?: "No student selected",
+        studentLabel = selectedStudent?.let { "${it.name} - ${it.section}" } ?: "No student selected",
         emptyMessage = errorMessage ?: "No official grade records yet.",
-        onBackClick = onBackClick,
-        onMonitorAcademicClick = onMonitorAcademicClick,
-        onTrackAttendanceClick = onTrackAttendanceClick
+        onBackClick = onBackClick
     )
 }
 
@@ -78,14 +76,11 @@ fun MonitorAcademicScreen(
 @Composable
 fun MonitorAcademicContent(
     grades: List<CourseGrade>,
-    studentLabel: String = "",
-    emptyMessage: String = "No official grade records yet.",
-    onBackClick: () -> Unit,
-    onMonitorAcademicClick: () -> Unit = {},
-    onTrackAttendanceClick: () -> Unit = {}
+    studentLabel: String,
+    emptyMessage: String,
+    onBackClick: () -> Unit
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: All, 1: Grades, 2: Performance
-    var showMenu by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableIntStateOf(0) }
 
     Scaffold(
         topBar = {
@@ -97,14 +92,14 @@ fun MonitorAcademicContent(
                     ) {
                         Text(
                             text = "Academic",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            color = Color.Black
+                            style = AppTypes.type_H2,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
+                        // Repaired the duplicated text parameters here!
                         Text(
                             text = studentLabel,
-                            fontSize = 12.sp,
-                            color = Color.Gray
+                            style = AppTypes.type_Caption,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
@@ -113,59 +108,38 @@ fun MonitorAcademicContent(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Navigate back",
-                            tint = Color.Black
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showMenu = true }) {
+                    IconButton(onClick = { /* TODO: Menu action */ }) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
                             contentDescription = "More options",
-                            tint = Color.Black
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Monitor Academic") },
-                            onClick = {
-                                showMenu = false
-                                onMonitorAcademicClick()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Track Attendance") },
-                            onClick = {
-                                showMenu = false
-                                onTrackAttendanceClick()
-                            }
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.White,
-                    scrolledContainerColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
-        containerColor = Color.White
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Tabs
             CustomTabRow(
                 selectedTabIndex = selectedTab,
                 onTabSelected = { selectedTab = it },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
 
-            // Content based on selected tab
             when (selectedTab) {
                 0 -> AllTabContent(grades, emptyMessage)
                 1 -> GradesTabContent(grades, emptyMessage)
@@ -181,13 +155,28 @@ fun MonitorAcademicContent(
 fun AllTabContent(grades: List<CourseGrade>, emptyMessage: String) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 80.dp) // Space for external bottom nav
+        contentPadding = PaddingValues(bottom = 80.dp)
     ) {
         item {
-            MissingAssignmentAlert(modifier = Modifier.padding(16.dp))
+            CustomAlertCard(
+                title = "Missing assignment",
+                description = "Please submit your final essay draft before the deadline.",
+                trailingText = "English 101",
+                trailingSubText = "4hrs ago",
+                icon = Icons.Default.Warning,
+                iconBackgroundColor = MaterialTheme.colorScheme.error,
+                containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                contentColor = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(16.dp)
+            )
         }
         item {
-            Text("Grades", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            Text(
+                text = "Grades",
+                style = AppTypes.type_H2.copy(fontSize = 20.sp),
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -203,7 +192,12 @@ fun AllTabContent(grades: List<CourseGrade>, emptyMessage: String) {
             }
         }
         item {
-            Text("Performance", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp))
+            Text(
+                text = "Performance",
+                style = AppTypes.type_H2.copy(fontSize = 20.sp),
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp)
+            )
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -253,13 +247,12 @@ fun PerformanceTabContent() {
         contentPadding = PaddingValues(16.dp)
     ) {
         item {
-            Text("Missing outputs", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                items(3) { PerformanceOrangeCard() }
-            }
-        }
-        item {
-            Text("High score outputs", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 24.dp, bottom = 12.dp))
+            Text(
+                text = "High score outputs",
+                style = AppTypes.type_H2.copy(fontSize = 18.sp),
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
             LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 items(3) { PerformanceOrangeCard() }
             }
@@ -278,15 +271,18 @@ fun CustomTabRow(selectedTabIndex: Int, onTabSelected: (Int) -> Unit, modifier: 
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (isSelected) Color(0xFF2E7D32) else Color(0xFFF5F5F5))
+                    .background(
+                        if (isSelected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceVariant
+                    )
                     .clickable { onTabSelected(index) }
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Text(
                     text = title,
-                    color = if (isSelected) Color.White else Color.Black,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                    fontSize = 14.sp
+                    style = AppTypes.type_Body_Small,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                 )
             }
         }
@@ -294,10 +290,20 @@ fun CustomTabRow(selectedTabIndex: Int, onTabSelected: (Int) -> Unit, modifier: 
 }
 
 @Composable
-fun MissingAssignmentAlert(modifier: Modifier = Modifier) {
+fun CustomAlertCard(
+    title: String,
+    description: String,
+    trailingText: String,
+    trailingSubText: String,
+    icon: ImageVector,
+    iconBackgroundColor: Color,
+    containerColor: Color,
+    contentColor: Color,
+    modifier: Modifier = Modifier
+) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF0F0)), // Soft pink
+        colors = CardDefaults.cardColors(containerColor = containerColor),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -310,22 +316,22 @@ fun MissingAssignmentAlert(modifier: Modifier = Modifier) {
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .background(Color.Red, CircleShape),
+                    .background(iconBackgroundColor, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Warning, contentDescription = "Warning", tint = Color.White, modifier = Modifier.size(24.dp))
+                Icon(icon, contentDescription = title, tint = Color.White, modifier = Modifier.size(24.dp))
             }
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text("Missing assignment", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.Black)
-                Text("Lorem ipsum dolor sit amet...", fontSize = 12.sp, color = Color.DarkGray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(title, style = AppTypes.type_Body_Small.copy(fontWeight = FontWeight.Bold), color = contentColor)
+                Text(description, style = AppTypes.type_Caption, color = contentColor.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
 
             Column(horizontalAlignment = Alignment.End) {
-                Text("English 101", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                Text(trailingText, style = AppTypes.type_Caption.copy(fontWeight = FontWeight.Bold), color = contentColor)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text("4hrs ago", fontSize = 11.sp, color = Color.Gray)
+                Text(trailingSubText, style = AppTypes.type_M3_label_small, color = contentColor.copy(alpha = 0.7f))
             }
         }
     }
@@ -333,28 +339,32 @@ fun MissingAssignmentAlert(modifier: Modifier = Modifier) {
 
 @Composable
 fun GradientGradeCard(grade: CourseGrade) {
-    // Diagonal gradient for a more premium feel
-    val brush = Brush.linearGradient(
-        colors = listOf(Color(0xFFF9FBE7), Color(0xFFAED581)),
-        start = Offset(0f, 0f),
-        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
+    // Restored the Offset and huge radius so the glowing effect works perfectly!
+    val greenRadialBrush = Brush.radialGradient(
+        colors = listOf(
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.primary.copy(alpha = 0f)
+        ),
+        radius = 1500f,
+        center = Offset(0f, 0f)
     )
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp) // Adds the drop shadow
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box(
             modifier = Modifier
-                .background(brush)
+                .background(Color(0xFFE8F5E9)) // Restored Dark Mode contrast background
+                .background(greenRadialBrush)
                 .padding(20.dp)
         ) {
             Column {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                     Column {
-                        Text(grade.subjectName, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Color.Black)
-                        Text("Mr. John Doe\nInstructor", fontSize = 12.sp, color = Color.DarkGray, lineHeight = 16.sp)
+                        Text(grade.subjectName, style = AppTypes.type_H2, color = Color(0xFF1B5E20))
+                        Text("Mr. John Doe\nInstructor", style = AppTypes.type_Caption, color = Color(0xFF2E7D32), lineHeight = 16.sp)
                     }
                     Box(
                         modifier = Modifier
@@ -362,7 +372,7 @@ fun GradientGradeCard(grade: CourseGrade) {
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("100%\npassed", fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold, lineHeight = 11.sp, textAlign = TextAlign.Center)
+                        Text("100%\npassed", style = AppTypes.type_M3_label_small.copy(fontSize = 9.sp), color = Color.White, fontWeight = FontWeight.Bold, lineHeight = 11.sp, textAlign = TextAlign.Center)
                     }
                 }
 
@@ -370,10 +380,11 @@ fun GradientGradeCard(grade: CourseGrade) {
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                     Text(
-                        text = String.format(Locale.US, "%.1f", grade.grade),
+                        text = String.format(java.util.Locale.US, "%.1f", grade.grade),
                         fontSize = 56.sp,
                         fontWeight = FontWeight.Light,
-                        color = Color.Black
+                        color = Color(0xFF1B5E20),
+                        modifier = Modifier.padding(bottom = 4.dp) // Stops the text clipping!
                     )
                     Box(
                         modifier = Modifier
@@ -391,40 +402,41 @@ fun GradientGradeCard(grade: CourseGrade) {
 
 @Composable
 fun PerformanceOrangeCard() {
-    Column(modifier = Modifier.width(150.dp)) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            modifier = Modifier.fillMaxWidth().height(110.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Brush.linearGradient(listOf(Color(0xFFFFB74D), Color(0xFFFF9800))))
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text("Document 1", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                Spacer(modifier = Modifier.height(2.dp))
-                Text("25.5.2026", fontSize = 11.sp, color = Color.Gray)
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.width(160.dp)
+    ) {
+        Column {
+            Canvas(modifier = Modifier.fillMaxWidth().height(100.dp)) {
+                drawRect(color = Color(0xFFF99623))
+                drawCircle(color = Color(0xFFFBB430), radius = size.width * 0.75f, center = Offset(0f, size.height))
+                drawCircle(color = Color(0xFFED811A), radius = size.width * 0.8f, center = Offset(size.width, size.height * 0.5f))
             }
 
-            Box(
+            Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFF2E7D32))
-                    .clickable { /* TODO: View Action */ }
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("View", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Column {
+                    Text("Document 1", style = AppTypes.type_Caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text("25.5.2026", style = AppTypes.type_Body_Small.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+                }
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(MaterialTheme.colorScheme.primary)
+                        .clickable { /* TODO: View Action */ }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Text("View", color = MaterialTheme.colorScheme.onPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
@@ -438,13 +450,14 @@ fun getDummyGrades(): List<CourseGrade> {
     )
 }
 
-// --- 3. THE PREVIEW ---
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
 fun MonitorAcademicPreview() {
     ParentAppTheme {
         MonitorAcademicContent(
             grades = getDummyGrades(),
+            studentLabel = "Test Student - 3rd Yr",
+            emptyMessage = "No grades yet",
             onBackClick = {}
         )
     }
