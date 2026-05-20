@@ -53,6 +53,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material3.windowSizeClass)
 
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.ui)
@@ -87,4 +88,6 @@ dependencies {
     implementation(libs.retrofit.converter.gson)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.socket.io.client)
+
+    implementation("androidx.core:core-splashscreen:1.0.1")
 }
