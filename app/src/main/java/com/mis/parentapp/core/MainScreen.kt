@@ -78,8 +78,6 @@ import com.mis.parentapp.features.auth.PasswordSignInScreen
 import com.mis.parentapp.features.auth.UsernameSignInScreen
 import com.mis.parentapp.features.home.HomeScreen
 import com.mis.parentapp.features.me.MeScreen
-import com.mis.parentapp.features.me.UserProfileViewModel
-import com.mis.parentapp.features.me.essentials.ChatViewModel
 import com.mis.parentapp.features.student.StudentScreen
 import com.mis.parentapp.navigation.Announcements
 import com.mis.parentapp.navigation.Calendar
@@ -118,7 +116,6 @@ fun MainScreen(
 ) {
     val navController = rememberNavController()
     val studentSharedViewModel: StudentSharedViewModel = viewModel()
-    val userProfileViewModel: UserProfileViewModel = viewModel()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
@@ -140,6 +137,7 @@ fun MainScreen(
     val database = remember { AppDatabase.getDatabase(context) }
     val userRepository = remember { UserRepository(database.userDao()) }
     val authViewModel = remember { AuthViewModel(userRepository) }
+    val userProfileViewModel: com.mis.parentapp.features.me.UserProfileViewModel = viewModel()
 
     val bottomTabs = listOf(
         BottomTab("Home", Home, Icons.Filled.Home, Icons.Outlined.Home),
@@ -212,7 +210,7 @@ fun MainScreen(
                 ChatInputBar(
                     text = chatViewModel.chatTextState,
                     onTextChange = { chatViewModel.chatTextState = it },
-                    onSend = { 
+                    onSend = {
                         chatArgs?.let { chatViewModel.sendMessage(it.id) }
                     }
                 )
@@ -480,7 +478,8 @@ fun MainScreen(
                     SubScreen(
                         startDestination = DataSafety,
                         studentVM = studentSharedViewModel,
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        userProfileViewModel = userProfileViewModel
                     )
                 }
                 composable<EditProfile> {
