@@ -96,7 +96,6 @@ fun UsernameSignInScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .offset { IntOffset(0, with(density) { offsetY.roundToPx() }) }
                 .padding(24.dp)
                 .statusBarsPadding()
                 .navigationBarsPadding(),

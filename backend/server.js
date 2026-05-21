@@ -16,10 +16,14 @@ app.use(express.json({ limit: '10mb' }));
 const PORT = process.env.PORT || 3000;
 const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, 'data', 'mis_parent_app.db');
 const UPLOAD_DIR = path.join(__dirname, 'data', 'uploads');
-const OTP_TTL_MINUTES = Number(process.env.OTP_TTL_MINUTES || 10);
+const OTP_TTL_MINUTES = Number(process.env.OTP_TTL_MINUTES || 15);
 const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS || 5);
 const OTP_RESEND_COOLDOWN_SECONDS = Number(process.env.OTP_RESEND_COOLDOWN_SECONDS || 60);
 const OTP_SECRET = process.env.OTP_SECRET || 'mis-parent-app-dev-otp-secret';
+const APP_VERSION_CODE = Number(process.env.APP_VERSION_CODE || 1);
+const APP_VERSION_NAME = process.env.APP_VERSION_NAME || '1.0';
+const APP_APK_URL = process.env.APP_APK_URL || '';
+const APP_RELEASE_NOTES = process.env.APP_RELEASE_NOTES || 'No update is available yet.';
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -725,7 +729,20 @@ async function sendEmailOtp(email, code) {
     });
 }
 
+function assertEmailOtpConfigured() {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
+        throw new Error('Email OTP is not configured. Set EMAIL_USER and EMAIL_APP_PASSWORD.');
+    }
+    try {
+        require.resolve('nodemailer');
+    } catch (_error) {
+        throw new Error('Email dependency missing. Run npm install in the backend folder.');
+    }
+}
+
 async function issueLoginOtp(parent) {
+    assertEmailOtpConfigured();
+
     const code = createOtpCode();
     const otpId = createOtpId();
     const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000).toISOString();
@@ -736,7 +753,9 @@ async function issueLoginOtp(parent) {
          VALUES (?, ?, ?, ?, ?)`,
         [otpId, parent.id, hashOtp(code), expiresAt, createdAt]
     );
-    await sendEmailOtp(parent.email, code);
+    sendEmailOtp(parent.email, code).catch(error => {
+        console.error(`Failed to send OTP email to parent ${parent.id}:`, error.message);
+    });
 
     return {
         otpToken: otpId,
@@ -976,6 +995,15 @@ app.get('/api/health', asyncHandler(async (req, res) => {
         database: 'connected',
         parents: parentCount.count,
         timestamp: new Date().toISOString()
+    });
+}));
+
+app.get('/api/app/version', asyncHandler(async (_req, res) => {
+    res.json({
+        versionCode: APP_VERSION_CODE,
+        versionName: APP_VERSION_NAME,
+        apkUrl: APP_APK_URL,
+        releaseNotes: APP_RELEASE_NOTES
     });
 }));
 
@@ -1433,6 +1461,7 @@ initDatabase()
             console.log(`Phone URL example: http://192.168.1.248:${PORT}`);
             console.log('Available endpoints:');
             console.log('  GET /api/health');
+            console.log('  GET /api/app/version');
             console.log('  POST /api/auth/login');
             console.log('  POST /api/auth/verify-otp');
             console.log('  POST /api/auth/resend-otp');

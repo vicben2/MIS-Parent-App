@@ -1,16 +1,13 @@
 package com.mis.parentapp.network
 
+import com.mis.parentapp.BuildConfig
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 
 object RetrofitInstance {
-    //for wi-fi
-//private const val BASE_URL = "http://192.168.1.248:3000/"
-
-    //if using phone via usb
-    //then run adb reverse tcp:3000 tcp:3000 in terminal
-    const val BASE_URL = "http://127.0.0.1:3000/"
+    const val BASE_URL = BuildConfig.API_BASE_URL
 
     fun resolveMediaUrl(url: String?): String? {
         val cleanUrl = url?.trim().orEmpty()
@@ -21,6 +18,10 @@ object RetrofitInstance {
 
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(90, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(90, TimeUnit.SECONDS)
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
                 val newRequest = originalRequest.newBuilder()
