@@ -265,11 +265,10 @@ fun Body(
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             selectedStudent?.student?.let { child ->
-                                val formattedPending = String.format(Locale.US, "₱ %,.2f", child.pendingPayment)
                                 QuickStatsSection(
                                     attendance = "${(child.attendanceScore * 100).toInt()}%",
                                     gpa = child.gpa.toString(),
-                                    pending = formattedPending,
+                                    performance = "${child.performanceScore}%",
                                     notifications = child.notificationCount.toString()
                                 )
                             }
@@ -294,11 +293,10 @@ fun Body(
 
                     // QUICK STATS
                     selectedStudent?.student?.let { child ->
-                        val formattedPending = String.format(Locale.US, "₱ %,.2f", child.pendingPayment)
                         QuickStatsSection(
                             attendance = "${(child.attendanceScore * 100).toInt()}%",
                             gpa = child.gpa.toString(),
-                            pending = formattedPending,
+                            performance = "${child.performanceScore}%",
                             notifications = child.notificationCount.toString()
                         )
                     }
@@ -360,6 +358,7 @@ private fun Child.toHomeStudent(): HomeStudent {
             attendanceScore = attendanceValue / 100.0,
             gpa = gpa,
             pendingPayment = pendingPayments.toDouble(),
+            performanceScore = performancePercentage,
             notificationCount = notificationCount,
             profileImageRes = R.drawable.student_image,
             isPresent = resolveCurrentClass(schedules) != null
@@ -690,7 +689,11 @@ private fun resolveHomeSchedulePair(
     var nextStatus = "Up Next"
     var nextDate = todayDateStr
 
-    if (nextSchedule == null && schedules.isNotEmpty()) {
+    if (nextSchedule != null) {
+        if (startMinutesFromRange(nextSchedule.time) - nowMinutes >= 720) {
+            nextStatus = "Upcoming"
+        }
+    } else if (schedules.isNotEmpty()) {
         val todayIdx = dayOrder(todayName)
         val sortedAll = schedules.sortedWith(compareBy<SubjectScheduleEntity> { dayOrder(it.day) }.thenBy { startMinutesFromRange(it.time) })
 
@@ -706,6 +709,11 @@ private fun resolveHomeSchedulePair(
             val nextCal = Calendar.getInstance()
             nextCal.add(Calendar.DAY_OF_YEAR, daysToAdd)
             nextDate = dateFormatter.format(nextCal.time)
+
+            val totalGap = (daysToAdd * 24 * 60) + startMinutesFromRange(nextSchedule.time) - nowMinutes
+            if (totalGap < 720) {
+                nextStatus = "Up Next"
+            }
         }
     }
 
@@ -848,7 +856,7 @@ fun HomeMenuDrawer(onItemClick: (String) -> Unit) {
 }
 
 @Composable
-fun QuickStatsSection(attendance: String, gpa: String, pending: String, notifications: String) {
+fun QuickStatsSection(attendance: String, gpa: String, performance: String, notifications: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -874,7 +882,7 @@ fun QuickStatsSection(attendance: String, gpa: String, pending: String, notifica
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            StatCard("Pending due", pending, R.drawable.boxicons_wallet_filled, Modifier.weight(1f))
+            StatCard("Performance", performance, R.drawable.baseline_trending_up_24, Modifier.weight(1f))
             StatCard("Notifications", notifications, R.drawable.fluent_color_megaphone_loud_32, Modifier.weight(1f))
         }
     }
