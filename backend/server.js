@@ -5,6 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const sqlite3 = require('sqlite3').verbose();
+const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(cors());
@@ -24,6 +25,80 @@ fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const db = new sqlite3.Database(DB_PATH);
 app.use('/media/uploads', express.static(UPLOAD_DIR));
+
+const twoFACodes = {};
+
+// Email transporter setup
+const transporter = nodemailer.createTransport({
+  service: 'gmail', // or your SMTP provider
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+// Route: Send 2FA code to email
+app.post('/api/2fa/send', async (req, res) => {
+  const { userId, email } = req.body;
+
+  if (!userId || !email) {
+    return res.status(400).json({ message: 'userId and email are required' });
+  }
+
+  // Generate a 6-digit code
+  const code = crypto.randomInt(100000, 999999).toString();
+  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
+
+  // Store it temporarily
+  twoFACodes[userId] = { code, expiresAt };
+
+  // Send email
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Your 2FA Verification Code',
+      text: `Your verification code is: ${code}\n\nThis code expires in 10 minutes.`,
+    });
+    res.json({ message: '2FA code sent successfully' });
+  } catch (err) {
+    console.error('Email error:', err);
+    res.status(500).json({ message: 'Failed to send email' });
+  }
+});
+
+// Route: Verify 2FA code
+app.post('/api/2fa/verify', (req, res) => {
+  const { userId, code } = req.body;
+
+  const record = twoFACodes[userId];
+
+  if (!record) {
+    return res.status(400).json({ message: 'No 2FA code found. Request a new one.' });
+  }
+
+  if (Date.now() > record.expiresAt) {
+    delete twoFACodes[userId];
+    return res.status(400).json({ message: 'Code has expired. Request a new one.' });
+  }
+
+  if (record.code !== code) {
+    return res.status(400).json({ message: 'Invalid code.' });
+  }
+
+  // Code is valid — enable/disable 2FA in your DB here
+  delete twoFACodes[userId];
+  res.json({ message: '2FA verified successfully' });
+});
+
+// Route: Toggle 2FA status in DB
+app.post('/api/2fa/toggle', (req, res) => {
+  const { userId, enable } = req.body;
+  // Update your DB here, e.g.:
+  // db.run('UPDATE users SET two_factor_enabled = ? WHERE id = ?', [enable ? 1 : 0, userId])
+  res.json({ message: `2FA ${enable ? 'enabled' : 'disabled'} successfully` });
+});
+
 
 function run(sql, params = []) {
     return new Promise((resolve, reject) => {
