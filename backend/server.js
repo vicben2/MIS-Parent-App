@@ -219,6 +219,91 @@ app.get('/api/parent/dashboard', asyncHandler(async (req, res) => {
     res.json(dashboard);
 }));
 
+app.get('/api/notifications', asyncHandler(async (req, res) => {
+    const studentId = req.query.studentId ? Number(req.query.studentId) : null;
+    const rows = await all(
+        `SELECT * FROM notifications
+         WHERE student_id IS NULL OR student_id = ?
+         ORDER BY is_new DESC, id DESC`,
+        [studentId]
+    );
+    res.json(rows.map(item => ({
+        id: item.id,
+        studentId: item.student_id,
+        text: item.text,
+        type: item.type,
+        time: item.time,
+        category: item.category,
+        isNew: Boolean(item.is_new),
+        imageUrl: item.image_url || '',
+        isPositive: Boolean(item.is_positive)
+    })));
+}));
+
+app.get('/api/calendar', asyncHandler(async (req, res) => {
+    const studentId = req.query.studentId ? Number(req.query.studentId) : null;
+    const rows = await all(
+        `SELECT id, title, category, date, time, description, status, image_url
+         FROM calendar_events
+         WHERE student_id IS NULL OR student_id = ?
+         ORDER BY date ASC, time ASC`,
+        [studentId]
+    );
+
+    const events = rows.map(item => ({
+        id: item.id,
+        title: item.title,
+        category: item.category,
+        date: item.date,
+        time: item.time || "",
+        description: item.description,
+        eventType: item.category,
+        status: item.status || "Normal",
+        imageUrl: item.image_url || "event1.jpg"
+    }));
+
+    res.json(events);
+}));
+
+app.get('/api/announcements', asyncHandler(async (req, res) => {
+    const rows = await all('SELECT * FROM notifications ORDER BY is_new DESC, id DESC');
+    res.json(rows.map(item => ({
+        id: item.id,
+        title: item.type,
+        content: item.text,
+        category: item.category,
+        urgent: Boolean(item.is_new),
+        imageUrl: item.image_url || null
+    })));
+}));
+
+app.get('/api/student/:id/attendance', asyncHandler(async (req, res) => {
+    const studentId = Number(req.params.id);
+    const rows = await all(
+        'SELECT * FROM attendance_subjects WHERE student_id = ? ORDER BY id',
+        [studentId]
+    );
+    res.json(rows.map(mapAttendance));
+}));
+
+app.get('/api/student/:id/grades', asyncHandler(async (req, res) => {
+    const studentId = Number(req.params.id);
+    const rows = await all(
+        'SELECT * FROM academic_grades WHERE student_id = ? ORDER BY id',
+        [studentId]
+    );
+    res.json(rows.map(mapGrade));
+}));
+
+app.get('/api/student/:id/academic-performance', asyncHandler(async (req, res) => {
+    const studentId = Number(req.params.id);
+    const rows = await all(
+        'SELECT * FROM academic_performance WHERE student_id = ? ORDER BY id',
+        [studentId]
+    );
+    res.json(rows.map(mapAcademicPerformance));
+}));
+
 // ==========================================
 // SECURITY & 2FA ENDPOINTS
 // ==========================================
@@ -760,6 +845,53 @@ async function normalizeOfficialData() {
         ['julianamaelloveras@gmail.com', '09082105876', 1]
     );
     console.log("Database parameters normalized perfectly.");
+}
+
+function mapGrade(row) {
+    return {
+        id: row.id,
+        studentId: row.student_id,
+        subjectName: row.subject_name,
+        units: row.units,
+        grade: row.grade,
+        instructor: row.instructor,
+        remarks: row.remarks,
+        term: row.term
+    };
+}
+
+function mapAcademicPerformance(row) {
+    return {
+        id: row.id,
+        studentId: row.student_id,
+        type: row.type,
+        title: row.title,
+        subject: row.subject,
+        teacher: row.teacher,
+        summary: row.summary,
+        details: row.details,
+        criteria: row.criteria,
+        imageUrl: row.image_url || null,
+        score: row.score || null,
+        status: row.status,
+        assignedDate: row.assigned_date,
+        dueDate: row.due_date,
+        timeAgo: row.time_ago,
+        isPositive: Boolean(row.is_positive)
+    };
+}
+
+function mapAttendance(row) {
+    return {
+        id: row.id,
+        studentId: row.student_id,
+        subjectName: row.subject_name,
+        instructor: row.instructor,
+        presentDays: row.present_days,
+        totalDays: row.total_days,
+        lateDays: row.late_days,
+        absentDays: row.absent_days
+    };
 }
 
 // ==========================================

@@ -2,6 +2,7 @@ package com.mis.parentapp.features.home
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -649,8 +650,11 @@ fun ScheduleCard(
                 fontSize = 17.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = primaryText,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                maxLines = 1,
+                modifier = Modifier.basicMarquee(
+                    iterations = Int.MAX_VALUE,
+                    velocity = 40.dp
+                )
             )
             Text(
                 text = schedule?.room ?: fallbackRoom,

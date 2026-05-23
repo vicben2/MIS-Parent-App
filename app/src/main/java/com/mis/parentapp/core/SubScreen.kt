@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -196,7 +197,12 @@ fun SubScreen(
                             Text(
                                 text = studentLabel,
                                 style = AppTypes.type_Caption,
-                                color = studentTopBarSubtitleColor
+                                color = studentTopBarSubtitleColor,
+                                maxLines = 1,
+                                modifier = Modifier.basicMarquee(
+                                    iterations = Int.MAX_VALUE,
+                                    velocity = 40.dp
+                                )
                             )
                         }
                     },
