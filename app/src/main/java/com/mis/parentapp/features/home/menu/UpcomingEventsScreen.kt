@@ -45,7 +45,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mis.parentapp.R
-import com.mis.parentapp.data.AppDatabase
 import com.mis.parentapp.data.EventItem
 import com.mis.parentapp.data.EventRepository
 import com.mis.parentapp.features.home.EventsViewModel
@@ -68,20 +67,23 @@ fun rememberDrawableIdFromName(imageName: String?): Int {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UpcomingEventsScreen(
+    studentId: Int? = null,
     autoSelectEventId: Int? = null,
     onBackClick: () -> Unit,
     onDetailTopBarChange: (Boolean, (() -> Unit)?, (() -> Unit)?) -> Unit
 ) {
     val context = LocalContext.current
-    val eventRepo = remember {
-        EventRepository(AppDatabase.getDatabase(context).eventDao())
-    }
+    val eventRepo = remember { EventRepository() }
     val viewModel: EventsViewModel = viewModel(
         factory = EventsViewModel.provideFactory(eventRepo)
     )
     val allUpcomingEvents by viewModel.upcomingEvents.collectAsState()
     var selectedFilter by remember { mutableStateOf("All") }
     var selectedEvent by remember { mutableStateOf<EventItem?>(null) }
+
+    LaunchedEffect(studentId) {
+        viewModel.refreshData(studentId)
+    }
 
     LaunchedEffect(allUpcomingEvents, autoSelectEventId) {
         if (autoSelectEventId != null && selectedEvent == null && allUpcomingEvents.isNotEmpty()) {
@@ -164,12 +166,12 @@ fun EventFilterRow(selectedFilter: String, onFilterSelected: (String) -> Unit) {
             Surface(
                 modifier = Modifier.clickable { onFilterSelected(filter) },
                 shape = RoundedCornerShape(8.dp),
-                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
             ) {
                 Text(
                     text = filter,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                     style = AppTypes.type_M3_label_small
                 )
             }

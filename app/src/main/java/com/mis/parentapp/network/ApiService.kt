@@ -1,5 +1,7 @@
 package com.mis.parentapp.network
 
+import okhttp3.ResponseBody
+import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Body
 import retrofit2.http.POST
@@ -8,6 +10,9 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface ApiService {
+
+    @GET("api/app/version")
+    suspend fun getAppVersion(): AppVersionDto
 
     @POST("api/auth/login")
     suspend fun login(@Body request: LoginRequest): LoginResponse
@@ -80,4 +85,19 @@ interface ApiService {
 
     @GET("api/announcements")
     suspend fun getAnnouncements(): List<AnnouncementDto>
+
+    @POST("api/2fa/send")
+    suspend fun send2FACode(
+        @Body body: Map<String, String>
+    ): Response<ResponseBody>
+
+    @POST("api/2fa/verify")
+    suspend fun verify2FACode(
+        @Body body: Map<String, String>
+    ): Response<ResponseBody>
+
+    @POST("api/2fa/toggle")
+    suspend fun toggle2FA(
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): Response<ResponseBody>
 }

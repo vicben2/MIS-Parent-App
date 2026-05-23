@@ -5,24 +5,104 @@ const path = require('path');
 const crypto = require('crypto');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const sqlite3 = require('sqlite3').verbose();
+const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 
+
 const PORT = process.env.PORT || 3000;
 const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, 'data', 'mis_parent_app.db');
 const UPLOAD_DIR = path.join(__dirname, 'data', 'uploads');
-const OTP_TTL_MINUTES = Number(process.env.OTP_TTL_MINUTES || 10);
+const OTP_TTL_MINUTES = Number(process.env.OTP_TTL_MINUTES || 15);
 const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS || 5);
 const OTP_RESEND_COOLDOWN_SECONDS = Number(process.env.OTP_RESEND_COOLDOWN_SECONDS || 60);
 const OTP_SECRET = process.env.OTP_SECRET || 'mis-parent-app-dev-otp-secret';
+const APP_VERSION_CODE = Number(process.env.APP_VERSION_CODE || 1);
+const APP_VERSION_NAME = process.env.APP_VERSION_NAME || '1.0';
+const APP_APK_URL = process.env.APP_APK_URL || '';
+const APP_RELEASE_NOTES = process.env.APP_RELEASE_NOTES || 'No update is available yet.';
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const db = new sqlite3.Database(DB_PATH);
 app.use('/media/uploads', express.static(UPLOAD_DIR));
+
+const twoFACodes = {};
+
+// Email transporter setup
+const transporter = nodemailer.createTransport({
+  service: 'gmail', // or your SMTP provider
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+// Route: Send 2FA code to email
+app.post('/api/2fa/send', async (req, res) => {
+  const { userId, email } = req.body;
+
+  if (!userId || !email) {
+    return res.status(400).json({ message: 'userId and email are required' });
+  }
+
+  // Generate a 6-digit code
+  const code = crypto.randomInt(100000, 999999).toString();
+  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
+
+  // Store it temporarily
+  twoFACodes[userId] = { code, expiresAt };
+
+  // Send email
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Your 2FA Verification Code',
+      text: `Your verification code is: ${code}\n\nThis code expires in 10 minutes.`,
+    });
+    res.json({ message: '2FA code sent successfully' });
+  } catch (err) {
+    console.error('Email error:', err);
+    res.status(500).json({ message: 'Failed to send email' });
+  }
+});
+
+// Route: Verify 2FA code
+app.post('/api/2fa/verify', (req, res) => {
+  const { userId, code } = req.body;
+
+  const record = twoFACodes[userId];
+
+  if (!record) {
+    return res.status(400).json({ message: 'No 2FA code found. Request a new one.' });
+  }
+
+  if (Date.now() > record.expiresAt) {
+    delete twoFACodes[userId];
+    return res.status(400).json({ message: 'Code has expired. Request a new one.' });
+  }
+
+  if (record.code !== code) {
+    return res.status(400).json({ message: 'Invalid code.' });
+  }
+
+  // Code is valid — enable/disable 2FA in your DB here
+  delete twoFACodes[userId];
+  res.json({ message: '2FA verified successfully' });
+});
+
+// Route: Toggle 2FA status in DB
+app.post('/api/2fa/toggle', (req, res) => {
+  const { userId, enable } = req.body;
+  // Update your DB here, e.g.:
+  // db.run('UPDATE users SET two_factor_enabled = ? WHERE id = ?', [enable ? 1 : 0, userId])
+  res.json({ message: `2FA ${enable ? 'enabled' : 'disabled'} successfully` });
+});
+
 
 function run(sql, params = []) {
     return new Promise((resolve, reject) => {
@@ -169,11 +249,13 @@ async function initDatabase() {
             time TEXT NOT NULL,
             category TEXT NOT NULL,
             is_new INTEGER NOT NULL DEFAULT 0,
-            image_url TEXT NOT NULL DEFAULT ''
+            image_url TEXT NOT NULL DEFAULT '',
+            is_positive INTEGER NOT NULL DEFAULT 1
         )
     `);
     await ensureColumn('notifications', 'image_url', "TEXT NOT NULL DEFAULT ''");
-    
+    await ensureColumn('notifications', 'is_positive', "INTEGER NOT NULL DEFAULT 1");
+
     // FIX: Added image_url TEXT column to handle the mock image asset strings
     await run(`
         CREATE TABLE IF NOT EXISTS calendar_events (
@@ -199,6 +281,27 @@ async function initDatabase() {
             instructor TEXT NOT NULL,
             remarks TEXT NOT NULL DEFAULT '',
             term TEXT NOT NULL,
+            FOREIGN KEY(student_id) REFERENCES students(id)
+        )
+    `);
+    await run(`
+        CREATE TABLE IF NOT EXISTS academic_performance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_id INTEGER NOT NULL,
+            type TEXT NOT NULL,
+            title TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            teacher TEXT NOT NULL,
+            summary TEXT NOT NULL,
+            details TEXT NOT NULL,
+            criteria TEXT NOT NULL,
+            image_url TEXT,
+            score TEXT,
+            status TEXT NOT NULL,
+            assigned_date TEXT NOT NULL,
+            due_date TEXT NOT NULL,
+            time_ago TEXT NOT NULL,
+            is_positive INTEGER NOT NULL DEFAULT 1,
             FOREIGN KEY(student_id) REFERENCES students(id)
         )
     `);
@@ -321,15 +424,15 @@ async function seedDatabase() {
     }
 
     const notifications = [
-        [1, 101, 'Nathaniel has a Mobile Development laboratory activity due today.', 'Reminder', '1hr ago', 'academic', 1, 'event1.jpg'],
-        [2, 101, 'Database Systems quiz score has been posted.', 'Activity', '4hrs ago', 'academic', 1, 'event2.jpg'],
-        [3, 102, "Sofia's PE uniform fee is still pending.", 'Reminder', 'Yesterday', 'financial', 1, 'event3.jpg'],
-        [4, null, 'College assembly will be held on May 24 at the auditorium.', 'Event', 'Yesterday', 'college', 0, 'event1.jpg'],
-        [5, null, 'Emergency drill schedule has been moved to next week.', 'Emergency', '2 days ago', 'school-wide', 0, 'event2.jpg']
+        [1, 101, 'Nathaniel has a Mobile Development laboratory activity due today.', 'Reminder', '1hr ago', 'academic', 1, 'event1.jpg', 1],
+        [2, 101, 'Database Systems quiz score has been posted.', 'Activity', '4hrs ago', 'academic', 1, 'event2.jpg', 1],
+        [3, 102, "Sofia's PE uniform fee is still pending.", 'Reminder', 'Yesterday', 'financial', 1, 'event3.jpg', 0],
+        [4, null, 'College assembly will be held on May 24 at the auditorium.', 'Event', 'Yesterday', 'college', 0, 'event1.jpg', 1],
+        [5, null, 'Emergency drill schedule has been moved to next week.', 'Emergency', '2 days ago', 'school-wide', 0, 'event2.jpg', 1]
     ];
     for (const notification of notifications) {
         await run(
-            'INSERT INTO notifications (id, student_id, text, type, time, category, is_new, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO notifications (id, student_id, text, type, time, category, is_new, image_url, is_positive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             notification
         );
     }
@@ -398,6 +501,105 @@ async function seedOfficialData() {
                 `INSERT INTO attendance_subjects
                  (student_id, subject_name, instructor, present_days, total_days, late_days, absent_days)
                  VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                item
+            );
+        }
+    }
+
+    const performanceCount = await get('SELECT COUNT(*) AS count FROM academic_performance');
+    if (performanceCount.count === 0) {
+        const performance = [
+            [
+                101,
+                'high_score',
+                'High score in exam',
+                'IT 312 - Mobile Development',
+                'Prof. Reyes',
+                'Nathaniel earned one of the highest scores in the Mobile Development practical exam.',
+                'The practical exam required students to build a working Android screen, connect it to sample data, and explain the navigation flow. Nathaniel completed the required UI states, used proper spacing, and demonstrated a clear understanding of Compose layout behavior during the checking period.',
+                'Functional screen output, correct navigation, readable code structure, and accurate explanation during checking.',
+                'event1.jpg',
+                '47/50',
+                'Completed',
+                '2026-05-18',
+                '2026-05-18',
+                '4hrs ago',
+                1
+            ],
+            [
+                101,
+                'low_score',
+                'Low score in assignment',
+                'IT 326 - Database Systems',
+                'Dr. Maria Santos',
+                'Nathaniel needs improvement in the recent database normalization assignment.',
+                'The submitted output missed several required normalization steps and had incomplete explanations for relationship constraints. The instructor recommends reviewing the feedback and preparing corrections before the next database activity.',
+                'Complete normalization steps, correct primary and foreign key identification, and clear written explanation of table relationships.',
+                'event2.jpg',
+                '18/30',
+                'Needs Review',
+                '2026-05-17',
+                '2026-05-17',
+                '1 day ago',
+                0
+            ],
+            [
+                101,
+                'missing_output',
+                'Missing laboratory output',
+                'IT 318 - Web Systems',
+                'Prof. Garcia',
+                'Nathaniel has not yet submitted the latest Web Systems laboratory output.',
+                'The missing output covers responsive page layout, form validation, and backend request handling. The parent is advised to remind the student to complete and submit the laboratory file as soon as possible.',
+                'Submitted source files, working form validation, responsive layout, and screenshots of successful test cases.',
+                'event3.jpg',
+                null,
+                'Missing',
+                '2026-05-16',
+                '2026-05-20',
+                '2 days ago',
+                0
+            ],
+            [
+                102,
+                'high_score',
+                'Excellent data structures quiz',
+                'CS 210 - Data Structures',
+                'Prof. Molina',
+                'Sofia received a high score in the Data Structures long quiz.',
+                'The quiz covered trees, graph traversal, sorting algorithms, and complexity analysis. Sofia showed strong understanding of traversal order and algorithm comparison.',
+                'Correct answers, clear problem solving, and accurate complexity analysis.',
+                'event1.jpg',
+                '44/50',
+                'Completed',
+                '2026-05-16',
+                '2026-05-16',
+                '2 days ago',
+                1
+            ],
+            [
+                102,
+                'missing_output',
+                'Missing PE activity documentation',
+                'PE 204 - Team Sports',
+                'Coach Ramos',
+                'Sofia still needs to submit the PE activity documentation.',
+                'The required documentation includes activity photos, reflection notes, and attendance confirmation for the team sports session.',
+                'Complete activity documentation, reflection notes, and attendance confirmation.',
+                'event2.jpg',
+                null,
+                'Missing',
+                '2026-05-15',
+                '2026-05-19',
+                '3 days ago',
+                0
+            ]
+        ];
+        for (const item of performance) {
+            await run(
+                `INSERT INTO academic_performance
+                 (student_id, type, title, subject, teacher, summary, details, criteria, image_url, score, status, assigned_date, due_date, time_ago, is_positive)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 item
             );
         }
@@ -505,13 +707,14 @@ async function normalizeOfficialData() {
             date,
             audience === 'student' ? category.toLowerCase() : category,
             id <= 5 ? 1 : 0,
-            imageUrl
+            imageUrl,
+            1
         ];
     });
     for (const notification of eventNotifications) {
         await run(
-            `INSERT INTO notifications (id, student_id, text, type, time, category, is_new, image_url)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `INSERT INTO notifications (id, student_id, text, type, time, category, is_new, image_url, is_positive)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(id) DO UPDATE SET
                 student_id = excluded.student_id,
                 text = excluded.text,
@@ -519,7 +722,8 @@ async function normalizeOfficialData() {
                 time = excluded.time,
                 category = excluded.category,
                 is_new = excluded.is_new,
-                image_url = excluded.image_url`,
+                image_url = excluded.image_url,
+                is_positive = excluded.is_positive`,
             notification
         );
     }
@@ -615,7 +819,7 @@ function createOtpId() {
 
 async function sendEmailOtp(email, code) {
     const user = process.env.EMAIL_USER;
-    const pass = process.env.EMAIL_APP_PASSWORD;
+    const pass = getEmailAppPassword();
     const from = process.env.EMAIL_FROM || `Colegio De Alicia <${user}>`;
 
     if (!user || !pass) {
@@ -633,7 +837,10 @@ async function sendEmailOtp(email, code) {
         host: process.env.EMAIL_HOST || 'smtp.gmail.com',
         port: Number(process.env.EMAIL_PORT || 465),
         secure: String(process.env.EMAIL_SECURE || 'true') !== 'false',
-        auth: { user, pass }
+        auth: { user, pass },
+        connectionTimeout: Number(process.env.EMAIL_CONNECTION_TIMEOUT_MS || 15000),
+        greetingTimeout: Number(process.env.EMAIL_GREETING_TIMEOUT_MS || 15000),
+        socketTimeout: Number(process.env.EMAIL_SOCKET_TIMEOUT_MS || 20000)
     });
 
     await transporter.sendMail({
@@ -643,9 +850,29 @@ async function sendEmailOtp(email, code) {
         text: `Your Colegio De Alicia Parent App verification code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`,
         html: `<p>Your Colegio De Alicia Parent App verification code is:</p><h2>${code}</h2><p>This code expires in ${OTP_TTL_MINUTES} minutes.</p>`
     });
+    console.log(`OTP email queued for ${maskEmail(email)}`);
+}
+
+function getEmailAppPassword() {
+    return String(process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS || '')
+        .replace(/\s+/g, '')
+        .trim();
+}
+
+function assertEmailOtpConfigured() {
+    if (!process.env.EMAIL_USER || !getEmailAppPassword()) {
+        throw new Error('Email OTP is not configured. Set EMAIL_USER and EMAIL_APP_PASSWORD.');
+    }
+    try {
+        require.resolve('nodemailer');
+    } catch (_error) {
+        throw new Error('Email dependency missing. Run npm install in the backend folder.');
+    }
 }
 
 async function issueLoginOtp(parent) {
+    assertEmailOtpConfigured();
+
     const code = createOtpCode();
     const otpId = createOtpId();
     const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000).toISOString();
@@ -656,7 +883,9 @@ async function issueLoginOtp(parent) {
          VALUES (?, ?, ?, ?, ?)`,
         [otpId, parent.id, hashOtp(code), expiresAt, createdAt]
     );
-    await sendEmailOtp(parent.email, code);
+    sendEmailOtp(parent.email, code).catch(error => {
+        console.error(`Failed to send OTP email to parent ${parent.id}:`, error.message);
+    });
 
     return {
         otpToken: otpId,
@@ -714,6 +943,27 @@ function mapGrade(row) {
         instructor: row.instructor,
         remarks: row.remarks,
         term: row.term
+    };
+}
+
+function mapAcademicPerformance(row) {
+    return {
+        id: row.id,
+        studentId: row.student_id,
+        type: row.type,
+        title: row.title,
+        subject: row.subject,
+        teacher: row.teacher,
+        summary: row.summary,
+        details: row.details,
+        criteria: row.criteria,
+        imageUrl: row.image_url || null,
+        score: row.score || null,
+        status: row.status,
+        assignedDate: row.assigned_date,
+        dueDate: row.due_date,
+        timeAgo: row.time_ago,
+        isPositive: Boolean(row.is_positive)
     };
 }
 
@@ -848,6 +1098,23 @@ async function buildDashboard(parentId = 1) {
     for (const childId of parent.children) {
         const child = await getStudent(childId);
         if (child) {
+            // Calculate Performance Percentage
+            const attendanceVal = parseFloat(child.attendance.replace('%', '')) || 0;
+
+            // Normalized GPA (3.0 is passing limit at 75%)
+            let gpaNormalized;
+            if (child.gpa <= 3.0) {
+                gpaNormalized = 100 - (child.gpa - 1.0) * 12.5; // 1.0 -> 100, 3.0 -> 75
+            } else {
+                gpaNormalized = 75 - (child.gpa - 3.0) * 37.5;  // 3.0 -> 75, 5.0 -> 0
+            }
+
+            const performanceRecords = await all('SELECT is_positive FROM notifications WHERE student_id = ? AND type IN ("Activity", "Reminder")', [childId]);
+            const positiveCount = performanceRecords.filter(r => r.is_positive === 1).length;
+            const taskScore = performanceRecords.length > 0 ? (positiveCount / performanceRecords.length) * 100 : 100;
+
+            child.performancePercentage = Math.round((gpaNormalized * 0.6) + (attendanceVal * 0.3) + (taskScore * 0.1));
+
             const childUnread = await get('SELECT COUNT(*) AS count FROM notifications WHERE is_new = 1 AND student_id = ?', [childId]);
             child.notificationCount = childUnread.count + schoolUnread.count;
             children.push(child);
@@ -879,6 +1146,15 @@ app.get('/api/health', asyncHandler(async (req, res) => {
         database: 'connected',
         parents: parentCount.count,
         timestamp: new Date().toISOString()
+    });
+}));
+
+app.get('/api/app/version', asyncHandler(async (_req, res) => {
+    res.json({
+        versionCode: APP_VERSION_CODE,
+        versionName: APP_VERSION_NAME,
+        apkUrl: APP_APK_URL,
+        releaseNotes: APP_RELEASE_NOTES
     });
 }));
 
@@ -1179,6 +1455,19 @@ app.get('/api/student/:id/grades', asyncHandler(async (req, res) => {
     res.json(rows.map(mapGrade));
 }));
 
+app.get('/api/student/:id/academic-performance', asyncHandler(async (req, res) => {
+    const studentId = Number(req.params.id);
+    const student = await get('SELECT id FROM students WHERE id = ?', [studentId]);
+    if (!student) {
+        return res.status(404).json({ error: 'Student not found' });
+    }
+    const rows = await all(
+        'SELECT * FROM academic_performance WHERE student_id = ? ORDER BY id',
+        [studentId]
+    );
+    res.json(rows.map(mapAcademicPerformance));
+}));
+
 app.get('/api/student/:id/attendance', asyncHandler(async (req, res) => {
     const studentId = Number(req.params.id);
     const student = await get('SELECT id FROM students WHERE id = ?', [studentId]);
@@ -1282,7 +1571,8 @@ app.get('/api/notifications', asyncHandler(async (req, res) => {
         time: item.time,
         category: item.category,
         isNew: Boolean(item.is_new),
-        imageUrl: item.image_url || ''
+        imageUrl: item.image_url || '',
+        isPositive: Boolean(item.is_positive)
     })));
 }));
 
@@ -1335,6 +1625,7 @@ initDatabase()
             console.log(`Phone URL example: http://192.168.1.248:${PORT}`);
             console.log('Available endpoints:');
             console.log('  GET /api/health');
+            console.log('  GET /api/app/version');
             console.log('  POST /api/auth/login');
             console.log('  POST /api/auth/verify-otp');
             console.log('  POST /api/auth/resend-otp');

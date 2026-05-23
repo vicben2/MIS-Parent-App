@@ -7,6 +7,13 @@ data class ParentDashboard(
     val upcomingEvents: List<String>
 )
 
+data class AppVersionDto(
+    val versionCode: Int,
+    val versionName: String,
+    val apkUrl: String? = null,
+    val releaseNotes: String? = null
+)
+
 data class LoginRequest(
     val username: String,
     val password: String
@@ -84,6 +91,7 @@ data class Child(
     val gpa: Double,
     val pendingPayments: Int,
     val notificationCount: Int = 0,
+    val performancePercentage: Int = 0,
     val profileImageUrl: String? = null,
     val backgroundImageUrl: String? = null,
     val schedules: List<ClassSchedule> = emptyList(),
