@@ -1,4 +1,4 @@
-package com.mis.parentapp.utilities.modals
+package com.mis.parentapp.utils.modals
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,8 +21,8 @@ import androidx.compose.ui.unit.dp
 import com.mis.parentapp.R
 import com.mis.parentapp.network.Child
 import com.mis.parentapp.ui.theme.AppTypes
-import com.mis.parentapp.utilities.images.InitialsImageFallback
-import com.mis.parentapp.utilities.images.RemoteImage
+import com.mis.parentapp.utils.images.InitialsImageFallback
+import com.mis.parentapp.utils.images.RemoteImage
 
 @Composable
 fun ServiceAccountSwitchModal(

@@ -1,4 +1,4 @@
-package com.mis.parentapp.utilities.cards.dataclass
+package com.mis.parentapp.utils.cards.dataclass
 
 import androidx.compose.ui.graphics.vector.ImageVector
 

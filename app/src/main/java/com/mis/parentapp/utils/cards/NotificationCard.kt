@@ -1,4 +1,4 @@
-package com.mis.parentapp.utilities.cards
+package com.mis.parentapp.utils.cards
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -22,7 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mis.parentapp.R
-import com.mis.parentapp.utilities.images.RemoteImage
+import com.mis.parentapp.utils.images.RemoteImage
 
 enum class NotificationType {
     EVENT, ACTIVITY, ATTENDANCE, MESSAGE, REMINDER, EMERGENCY

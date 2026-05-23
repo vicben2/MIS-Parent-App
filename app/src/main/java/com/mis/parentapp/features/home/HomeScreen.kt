@@ -68,8 +68,8 @@ import com.mis.parentapp.network.ClassSchedule
 import com.mis.parentapp.network.RetrofitInstance
 import com.mis.parentapp.shared.StudentSharedViewModel
 import com.mis.parentapp.ui.theme.AppTypes
-import com.mis.parentapp.utilities.images.InitialsImageFallback
-import com.mis.parentapp.utilities.images.RemoteImage
+import com.mis.parentapp.utils.images.InitialsImageFallback
+import com.mis.parentapp.utils.images.RemoteImage
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale

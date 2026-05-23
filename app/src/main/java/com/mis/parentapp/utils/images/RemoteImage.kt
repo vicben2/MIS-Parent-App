@@ -1,4 +1,4 @@
-package com.mis.parentapp.utilities.images
+package com.mis.parentapp.utils.images
 
 import android.graphics.BitmapFactory
 import androidx.annotation.DrawableRes

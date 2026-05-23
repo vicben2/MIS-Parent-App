@@ -158,7 +158,8 @@ data class AnnouncementDto(
     val title: String,
     val content: String,
     val category: String,
-    val urgent: Boolean
+    val urgent: Boolean,
+    val imageUrl: String? = null
 )
 
 data class GradeDto(
@@ -263,5 +264,17 @@ data class ChatHistoryResponse(
 data class SendChatMessageRequest(
     val sender_id: String = "parent_1",
     val receiver_id: String,
+    val message: String
+)
+
+data class FeedbackRequest(
+    val userEmail: String?,
+    val feedbackType: String,
+    val message: String,
+    val appVersion: String
+)
+
+data class FeedbackResponse(
+    val success: Boolean,
     val message: String
 )

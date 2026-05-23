@@ -1,4 +1,4 @@
-package com.mis.parentapp.utilities.cards
+package com.mis.parentapp.utils.cards
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mis.parentapp.utilities.cards.dataclass.Category
+import com.mis.parentapp.utils.cards.dataclass.Category
 
 @Composable
 fun CategoryCard(

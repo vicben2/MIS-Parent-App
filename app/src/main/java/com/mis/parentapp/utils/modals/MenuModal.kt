@@ -1,4 +1,4 @@
-package com.mis.parentapp.utilities.modals
+package com.mis.parentapp.utils.modals
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*

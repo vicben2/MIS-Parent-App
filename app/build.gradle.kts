@@ -9,7 +9,7 @@ android {
     namespace = "com.mis.parentapp"
     compileSdk = 37
 
-    val localApiUrl = "http://127.0.0.1:3000/"
+    val localApiUrl = "https://mis-parent-app-production.up.railway.app/"
     val deployedApiUrl = (project.findProperty("PARENT_APP_API_URL") as String?)
         ?.takeIf { it.isNotBlank() }
         ?: localApiUrl
@@ -18,8 +18,8 @@ android {
         applicationId = "com.mis.parentapp"
         minSdk = 24
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_BASE_URL", "\"$deployedApiUrl\"")
@@ -28,6 +28,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            isCrunchPngs = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
