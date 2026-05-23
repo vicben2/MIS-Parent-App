@@ -73,20 +73,32 @@ app.get('/api/app/version', (req, res) => {
     });
 });
 
-// Submit Feedback into Postgres Database
+// Submit Feedback into Postgres Database with Local Philippine Timestamp
 app.post('/api/feedback', async (req, res) => {
-    const { userEmail, feedbackType, message, deviceInfo, appVersion } = req.body;
+    const { userEmail, feedbackType, message, deviceInfo } = req.body;
 
     if (!feedbackType || !message) {
         return res.status(400).json({ error: "Feedback type and message are required fields." });
     }
 
     try {
+        // 1. Explicitly generate the current Philippine Standard Time string
+        const phTimestamp = new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" });
+
+        // 2. Pass the timestamp directly into the INSERT statement ($5)
         const queryText = `
-            INSERT INTO parent_app_feedback (user_email, feedback_type, message, app_version)
-            VALUES ($1, $2, $3, $4) RETURNING id;
+            INSERT INTO parent_app_feedback (user_email, feedback_type, message, app_version, created_at)
+            VALUES ($1, $2, $3, $4, $5) RETURNING id;
         `;
-        const values = [userEmail, feedbackType, message, deviceInfo || appVersion || APP_VERSION_NAME];
+
+        const values = [
+            userEmail,
+            feedbackType,
+            message,
+            deviceInfo || APP_VERSION_NAME,
+            phTimestamp
+        ];
+
         const result = await pool.query(queryText, values);
 
         res.status(201).json({
