@@ -49,6 +49,11 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Helper for async routes
+function asyncHandler(handler) {
+    return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+}
+
 // ==========================================
 // NEW SYSTEM PRODUCTION ENDPOINTS
 // ==========================================
@@ -70,7 +75,7 @@ app.get('/api/app/version', (req, res) => {
 
 // Submit Feedback into Postgres Database
 app.post('/api/feedback', async (req, res) => {
-    const { userEmail, feedbackType, message, deviceInfo } = req.body;
+    const { userEmail, feedbackType, message, deviceInfo, appVersion } = req.body;
 
     if (!feedbackType || !message) {
         return res.status(400).json({ error: "Feedback type and message are required fields." });
@@ -81,7 +86,7 @@ app.post('/api/feedback', async (req, res) => {
             INSERT INTO parent_app_feedback (user_email, feedback_type, message, app_version)
             VALUES ($1, $2, $3, $4) RETURNING id;
         `;
-        const values = [userEmail, feedbackType, message, deviceInfo || APP_VERSION_NAME];
+        const values = [userEmail, feedbackType, message, deviceInfo || appVersion || APP_VERSION_NAME];
         const result = await pool.query(queryText, values);
 
         res.status(201).json({
@@ -96,7 +101,114 @@ app.post('/api/feedback', async (req, res) => {
 });
 
 // ==========================================
-// SECURITY & AUTHENTICATION ENDPOINTS
+// AUTHENTICATION ENDPOINTS
+// ==========================================
+
+app.post('/api/auth/login', asyncHandler(async (req, res) => {
+    const { username, password } = req.body || {};
+    const account = await get(
+        `SELECT * FROM parent_accounts
+         WHERE LOWER(username) = LOWER(?) AND password = ?`,
+        [String(username || '').trim(), password]
+    );
+
+    if (!account) {
+        return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    const parent = await getParent(account.parent_id);
+    const dashboard = await buildDashboard(account.parent_id);
+    const parentRow = await get('SELECT * FROM parents WHERE id = ?', [account.parent_id]);
+
+    if (parentRow?.two_factor_enabled) {
+        try {
+            const otp = await issueLoginOtp(parentRow);
+            return res.json({
+                requiresTwoFactor: true,
+                otpToken: otp.otpToken,
+                email: otp.email,
+                expiresAt: otp.expiresAt,
+                retryAfterSeconds: otp.retryAfterSeconds,
+                parent
+            });
+        } catch (error) {
+            return res.status(503).json({ error: error.message });
+        }
+    }
+
+    res.json({
+        requiresTwoFactor: false,
+        token: `parent-token-${account.parent_id}`,
+        parent,
+        dashboard
+    });
+}));
+
+app.post('/api/auth/verify-otp', asyncHandler(async (req, res) => {
+    const { otpToken, code } = req.body || {};
+    const otp = await get('SELECT * FROM login_otps WHERE id = ?', [String(otpToken || '')]);
+
+    if (!otp || otp.used) {
+        return res.status(401).json({ error: 'Invalid or expired verification code' });
+    }
+
+    if (new Date(otp.expires_at).getTime() < Date.now()) {
+        return res.status(401).json({ error: 'Verification code has expired' });
+    }
+
+    const matches = hashOtp(String(code || '').trim()) === otp.code_hash;
+    await run('UPDATE login_otps SET attempts = attempts + 1 WHERE id = ?', [otp.id]);
+
+    if (!matches) {
+        return res.status(401).json({ error: 'Invalid verification code' });
+    }
+
+    await run('UPDATE login_otps SET used = 1 WHERE id = ?', [otp.id]);
+
+    const parent = await getParent(otp.parent_id);
+    const dashboard = await buildDashboard(otp.parent_id);
+    res.json({
+        requiresTwoFactor: false,
+        token: `parent-token-${otp.parent_id}`,
+        parent,
+        dashboard
+    });
+}));
+
+app.post('/api/auth/resend-otp', asyncHandler(async (req, res) => {
+    const { otpToken } = req.body || {};
+    const currentOtp = await get('SELECT * FROM login_otps WHERE id = ?', [String(otpToken || '')]);
+
+    if (!currentOtp || currentOtp.used) {
+        return res.status(401).json({ error: 'Invalid or expired verification code' });
+    }
+
+    const parent = await get('SELECT * FROM parents WHERE id = ?', [currentOtp.parent_id]);
+    try {
+        await run('UPDATE login_otps SET used = 1 WHERE id = ?', [currentOtp.id]);
+        const otp = await issueLoginOtp(parent);
+        return res.json({
+            otpToken: otp.otpToken,
+            email: otp.email,
+            expiresAt: otp.expiresAt,
+            retryAfterSeconds: otp.retryAfterSeconds
+        });
+    } catch (error) {
+        return res.status(503).json({ error: error.message });
+    }
+}));
+
+app.get('/api/parent/dashboard', asyncHandler(async (req, res) => {
+    const parentId = Number(req.query.parentId || 1);
+    const dashboard = await buildDashboard(parentId);
+    if (!dashboard) {
+        return res.status(404).json({ error: 'Parent not found' });
+    }
+    res.json(dashboard);
+}));
+
+// ==========================================
+// SECURITY & 2FA ENDPOINTS
 // ==========================================
 
 app.post('/api/2fa/send', async (req, res) => {
@@ -636,6 +748,138 @@ async function normalizeOfficialData() {
         ['julianamaelloveras@gmail.com', '09082105876', 1]
     );
     console.log("Database parameters normalized perfectly.");
+}
+
+// ==========================================
+// CORE DATA ACCESS FUNCTIONS
+// ==========================================
+
+async function getParent(parentId) {
+    const parent = await get('SELECT * FROM parents WHERE id = ?', [parentId]);
+    if (!parent) return null;
+
+    const children = await all(
+        'SELECT student_id FROM parent_students WHERE parent_id = ? ORDER BY student_id',
+        [parentId]
+    );
+
+    return {
+        id: parent.id,
+        name: parent.name,
+        email: parent.email,
+        phone: parent.phone,
+        children: children.map(item => item.student_id),
+        profileImageUrl: parent.profile_image_url || '',
+        backgroundImageUrl: parent.background_image_url || parent.profile_image_url || ''
+    };
+}
+
+async function getStudent(studentId, includeStudyLoad = true) {
+    const row = await get('SELECT * FROM students WHERE id = ?', [studentId]);
+    if (!row) return null;
+
+    const schedules = await all(
+        'SELECT * FROM class_schedules WHERE student_id = ? ORDER BY day, start_time',
+        [studentId]
+    );
+    const studyLoad = includeStudyLoad ? await all(
+        'SELECT * FROM study_load_subjects WHERE student_id = ? ORDER BY sort_order, id',
+        [studentId]
+    ) : [];
+
+    return {
+        id: row.id,
+        name: row.name,
+        rollNumber: row.roll_number,
+        grade: row.grade,
+        section: row.section,
+        program: row.program,
+        course: row.course,
+        year: row.year,
+        classTeacher: row.class_teacher,
+        attendance: row.attendance,
+        gpa: row.gpa,
+        pendingPayments: row.pending_payments,
+        profileImageUrl: row.profile_image_url || '',
+        backgroundImageUrl: row.background_image_url || '',
+        schedules: schedules.map(s => ({
+            subject: s.subject,
+            room: s.room,
+            instructor: s.instructor,
+            day: s.day,
+            startTime: s.start_time,
+            endTime: s.end_time
+        })),
+        studyLoad: studyLoad.map(l => ({
+            scheduleNumber: l.schedule_number,
+            courseNumber: l.course_number,
+            code: l.code,
+            title: l.title,
+            units: l.units,
+            instructor: l.instructor,
+            schedule: l.schedule,
+            time: l.time,
+            days: l.days,
+            room: l.room,
+            remarks: l.remarks,
+            semester: l.semester,
+            schoolYear: l.school_year,
+            dateEnrolled: l.date_enrolled
+        }))
+    };
+}
+
+async function buildDashboard(parentId = 1) {
+    const parent = await getParent(parentId);
+    if (!parent) return null;
+
+    const children = [];
+    for (const childId of parent.children) {
+        const child = await getStudent(childId);
+        if (child) children.push(child);
+    }
+
+    const totalUnread = await get('SELECT COUNT(*) AS count FROM notifications WHERE is_new = 1');
+    const upcomingEvents = await all(
+        'SELECT title, date FROM calendar_events ORDER BY date LIMIT 3'
+    );
+
+    return {
+        parent,
+        children,
+        unreadAnnouncements: totalUnread.count,
+        upcomingEvents: upcomingEvents.map(event => `${event.title} - ${event.date}`)
+    };
+}
+
+// ==========================================
+// OTP & SECURITY HELPERS
+// ==========================================
+
+function hashOtp(code) {
+    return crypto.createHash('sha256').update(`${code}:${OTP_SECRET}`).digest('hex');
+}
+
+async function issueLoginOtp(parent) {
+    const code = String(crypto.randomInt(100000, 999999));
+    const otpId = crypto.randomBytes(24).toString('hex');
+    const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000).toISOString();
+
+    await run(
+        `INSERT INTO login_otps (id, parent_id, code_hash, expires_at)
+         VALUES (?, ?, ?, ?)`,
+        [otpId, parent.id, hashOtp(code), expiresAt]
+    );
+
+    // Mock sending email
+    console.log(`[MOCK EMAIL] OTP for ${parent.email}: ${code}`);
+
+    return {
+        otpToken: otpId,
+        expiresAt,
+        email: parent.email.replace(/(..)(.*)(@.*)/, '$1***$3'),
+        retryAfterSeconds: OTP_RESEND_COOLDOWN_SECONDS
+    };
 }
 
 // Core Execution Thread Bootstrap initialization
