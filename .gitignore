@@ -24,3 +24,6 @@ local.properties
 # JVM crash logs
 hs_err_pid*.log
 
+# Kotlin temporary build files
+.kotlin/
+
