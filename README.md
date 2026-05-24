@@ -5,7 +5,7 @@
 
   <p>
     <a href="https://github.com/MIS-Parent-Application/MIS-Parent-App/actions/workflows/android.yml"><img src="https://github.com/MIS-Parent-Application/MIS-Parent-App/actions/workflows/android.yml/badge.svg" alt="Android Debug APK Build"/></a>
-    <a href="https://railway.com/project/f7d6a086-3937-4fd3-bcfe-2162c3a63d7c?environmentId=3132c984-86de-492b-b247-f35e4200b009"><img src="https://railway.app/badge.svg" alt="Railway Deployment Status"/></a>
+    <a href="https://railway.app/project/f7d6a086-3937-4fd3-bcfe-2162c3a63d7c?environmentId=3132c984-86de-492b-b247-f35e4200b009"><img src="https://img.shields.io/website?label=Railway%20Deployment&url=https%3A%2F%2Fmis-parent-app-production.up.railway.app%2Fapi%2Fapp%2Fversion&style=flat&color=131415" alt="Railway Deployment Status"/></a>
   </p>
 
   <p>
