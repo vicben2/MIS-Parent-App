@@ -10,6 +10,7 @@
   [![Download MIS Parent App APK](https://img.shields.io/badge/Download-MIS_Parent_App_APK-38B02D?style=for-the-badge&logo=android&logoColor=white)](https://github.com/MIS-Parent-Application/MIS-Parent-App/releases/download/v1.0.1/app-release.apk)
   [![Documentation](https://img.shields.io/badge/Documentation-Google_Docs-EA4335?style=for-the-badge&logo=google-docs&logoColor=white)](https://docs.google.com/document/d/12nX_p62XZBdJY3RFJh4MCzTqaZNwWht3/edit)
   [![Figma Design](https://img.shields.io/badge/UI_Design-Figma-F24E1E?style=for-the-badge&logo=figma&logoColor=white)](https://www.figma.com/design/UamtqxiDJKrvsQHnHENeFs/Parent-App?node-id=0-1&t=8DO0y4AMdGC7fp55-1)
+  [![Google Drive Folder](https://img.shields.io/badge/Project_Drive-Storage-FFBA08?style=for-the-badge&logo=googledrive&logoColor=white)](https://drive.google.com/drive/folders/1lZW4yZSBHv25OFWngDQWTb3M-rbwzze3?usp=sharing)
 </div>
 
 ## 📌 Overview
