@@ -778,7 +778,9 @@ async function seedOfficialData() {
     if (performanceCount.count === 0) {
         const performance = [
             [101, 'high_score', 'High score in exam', 'IT 312 - Mobile Development', 'Prof. Reyes', 'Nathaniel earned one of the highest scores in the Mobile Development practical exam.', 'Android functional screen setup context details.', 'Explanation validation and alignment mechanics.', 'event1.jpg', '47/50', 'Completed', '2026-05-18', '2026-05-18', '4hrs ago', 1],
-            [101, 'low_score', 'Low score in assignment', 'IT 326 - Database Systems', 'Dr. Maria Santos', 'Nathaniel needs improvement in database normalization workflows.', 'The output missed relational rules schemas completely.', 'Full verification analysis structures.', 'event2.jpg', '18/30', 'Needs Review', '2026-05-17', '2026-05-17', '1 day ago', 0]
+            [101, 'low_score', 'Low score in assignment', 'IT 326 - Database Systems', 'Dr. Maria Santos', 'Nathaniel needs improvement in database normalization workflows.', 'The output missed relational rules schemas completely.', 'Full verification analysis structures.', 'event2.jpg', '18/30', 'Needs Review', '2026-05-17', '2026-05-17', '1 day ago', 0],
+            [102, 'high_score', 'Excellent quiz result', 'MATH 214 - Discrete Math', 'Ms. Aquino', 'Sofia showed exceptional logic skills in the set theory quiz.', 'Sofia solved all proofs correctly and provided detailed logic steps.', 'Logical consistency and proof accuracy.', 'event1.jpg', '20/20', 'Completed', '2026-05-19', '2026-05-19', '2hrs ago', 1],
+            [102, 'missing_output', 'Missing laboratory exercise', 'CS 218 - OOP', 'Engr. Villanueva', 'Sofia has not yet submitted Laboratory #3.', 'The exercise covers inheritance and polymorphism.', 'Functionality and code documentation.', 'event3.jpg', null, 'Pending', '2026-05-15', '2026-05-20', '3 days ago', 0]
         ];
         for (const item of performance) {
             await run(
@@ -980,7 +982,31 @@ async function buildDashboard(parentId = 1) {
     const children = [];
     for (const childId of parent.children) {
         const child = await getStudent(childId);
-        if (child) children.push(child);
+        if (child) {
+            // Calculate Performance Percentage for Quick Stats
+            const attendanceVal = parseFloat(child.attendance.replace('%', '')) || 0;
+
+            // Normalized GPA (1.0 is 100%, 3.0 is 75%, 5.0 is 0%)
+            let gpaNormalized;
+            if (child.gpa <= 3.0) {
+                gpaNormalized = 100 - (child.gpa - 1.0) * 12.5; // 1.0 -> 100, 3.0 -> 75
+            } else {
+                gpaNormalized = 75 - (child.gpa - 3.0) * 37.5;  // 3.0 -> 75, 5.0 -> 0
+            }
+
+            // Task Score (based on positive performance records)
+            const performanceRows = await all(
+                'SELECT is_positive FROM academic_performance WHERE student_id = ?',
+                [childId]
+            );
+            const positiveCount = performanceRows.filter(r => Boolean(r.is_positive)).length;
+            const taskScore = performanceRows.length > 0 ? (positiveCount / performanceRows.length) * 100 : 100;
+
+            // Final Weighted Performance Score
+            child.performancePercentage = Math.round((gpaNormalized * 0.6) + (attendanceVal * 0.3) + (taskScore * 0.1));
+
+            children.push(child);
+        }
     }
 
     const totalUnread = await get('SELECT COUNT(*) AS count FROM notifications WHERE is_new = 1');
