@@ -34,6 +34,15 @@ const APP_VERSION_NAME = process.env.APP_VERSION_NAME || '1.0.1';
 const APP_APK_URL = process.env.APP_APK_URL || 'https://github.com/semi-naan/MIS-Parent-Application/releases';
 const APP_RELEASE_NOTES = process.env.APP_RELEASE_NOTES || 'Optimizations for Parent Feature modules.';
 
+// Your version endpoint should look like this
+app.get('/api/app/version', (req, res) => {
+    res.status(200).json({
+        latestVersionCode: APP_VERSION_CODE,
+        latestVersionName: APP_VERSION_NAME,
+        remarks: UPDATE_REMARKS,
+        downloadUrl: DOWNLOAD_LINK
+    });
+});
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const db = new sqlite3.Database(DB_PATH);
