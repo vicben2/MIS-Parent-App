@@ -99,7 +99,9 @@ The project follows a **Client-Server architecture** with a modern mobile fronte
 ### Android (Mobile)
 1. **Download:** [Get the latest APK](https://github.com/MIS-Parent-Application/MIS-Parent-App/releases/download/v1.0.1/app-release.apk)
 2. **Installation:** Allow "Unknown Sources" in Android Settings.
-3. **Debug Auto-Login:** The app includes a debug bypass for development (`dev_tester` account).
+3. **Sign-in username:** jordan 
+4. **Sign-in password:** parent123
+5. **Debug Auto-Login:** The app includes a debug bypass for development (`dev_tester` account).
 
 ### Backend (Railway)
 1. **Repository:** Connect the `backend/` directory to a Railway project.
@@ -190,7 +192,7 @@ The project follows a **Client-Server architecture** with a modern mobile fronte
 
 ---
 <div align="center">
-  <p>© 2025 Colegio de Alicia. All Rights Reserved.</p>
+  <p>© 2026 Colegio de Alicia. All Rights Reserved.</p>
 </div>
 
 ---
