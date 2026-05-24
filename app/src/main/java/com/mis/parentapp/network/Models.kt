@@ -1,5 +1,7 @@
 package com.mis.parentapp.network
 
+import com.google.gson.annotations.SerializedName
+
 data class ParentDashboard(
     val parent: Parent,
     val children: List<Child>,
@@ -8,10 +10,17 @@ data class ParentDashboard(
 )
 
 data class AppVersionDto(
+    @SerializedName("latestVersionCode")
     val versionCode: Int,
+
+    @SerializedName("latestVersionName")
     val versionName: String,
-    val apkUrl: String? = null,
-    val releaseNotes: String? = null
+
+    @SerializedName("remarks")
+    val releaseNotes: String?,
+
+    @SerializedName("downloadUrl")
+    val apkUrl: String?
 )
 
 data class LoginRequest(
