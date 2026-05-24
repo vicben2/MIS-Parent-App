@@ -1,17 +1,21 @@
 <div align="center">
   <img src="app/src/main/res/drawable/school_logo.png" width="200px" alt="Colegio de Alicia Logo"/>
 
-  # MIS Parent App - Full Stack Documentation
+  <h1>MIS Parent App - Full Stack Documentation</h1>
 
-  [![Android Debug APK Build](https://github.com/MIS-Parent-Application/MIS-Parent-App/actions/workflows/android.yml/badge.svg)](https://github.com/MIS-Parent-Application/MIS-Parent-App/actions/workflows/android.yml)
-  [![Railway Deployment Status](https://railway.app/badge.svg)](https://railway.com/project/f7d6a086-3937-4fd3-bcfe-2162c3a63d7c?environmentId=3132c984-86de-492b-b247-f35e4200b009)
+  <p>
+    <a href="https://github.com/MIS-Parent-Application/MIS-Parent-App/actions/workflows/android.yml"><img src="https://github.com/MIS-Parent-Application/MIS-Parent-App/actions/workflows/android.yml/badge.svg" alt="Android Debug APK Build"/></a>
+    <a href="https://railway.com/project/f7d6a086-3937-4fd3-bcfe-2162c3a63d7c?environmentId=3132c984-86de-492b-b247-f35e4200b009"><img src="https://railway.app/badge.svg" alt="Railway Deployment Status"/></a>
+  </p>
 
-  [![Website](https://img.shields.io/badge/Website-colegiodealicia.com-0066CC?style=for-the-badge&logo=google-chrome&logoColor=white)](http://www.colegiodealicia.com/)
-  [![Facebook](https://img.shields.io/badge/Facebook-Official_Page-1877F2?style=for-the-badge&logo=facebook&logoColor=white)](https://www.facebook.com/profile.php?id=61574573837221)
-  [![Download MIS Parent App APK](https://img.shields.io/badge/Download-MIS_Parent_App_APK-38B02D?style=for-the-badge&logo=android&logoColor=white)](https://github.com/MIS-Parent-Application/MIS-Parent-App/releases/download/v1.0.1/app-release.apk)
-  [![Documentation](https://img.shields.io/badge/Documentation-Google_Docs-EA4335?style=for-the-badge&logo=google-docs&logoColor=white)](https://docs.google.com/document/d/12nX_p62XZBdJY3RFJh4MCzTqaZNwWht3/edit)
-  [![Figma Design](https://img.shields.io/badge/UI_Design-Figma-F24E1E?style=for-the-badge&logo=figma&logoColor=white)](https://www.figma.com/design/UamtqxiDJKrvsQHnHENeFs/Parent-App?node-id=0-1&t=8DO0y4AMdGC7fp55-1)
-  [![Google Drive Folder](https://img.shields.io/badge/Project_Drive-Storage-FFBA08?style=for-the-badge&logo=googledrive&logoColor=white)](https://drive.google.com/drive/folders/1lZW4yZSBHv25OFWngDQWTb3M-rbwzze3?usp=sharing)
+  <p>
+    <a href="http://www.colegiodealicia.com/"><img src="https://img.shields.io/badge/Website-colegiodealicia.com-0066CC?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Website"/></a>
+    <a href="https://www.facebook.com/profile.php?id=61574573837221"><img src="https://img.shields.io/badge/Facebook-Official_Page-1877F2?style=for-the-badge&logo=facebook&logoColor=white" alt="Facebook"/></a>
+    <a href="https://github.com/MIS-Parent-Application/MIS-Parent-App/releases/download/v1.0.1/app-release.apk"><img src="https://img.shields.io/badge/Download-MIS_Parent_App_APK-38B02D?style=for-the-badge&logo=android&logoColor=white" alt="Download MIS Parent App APK"/></a>
+    <a href="https://docs.google.com/document/d/12nX_p62XZBdJY3RFJh4MCzTqaZNwWht3/edit"><img src="https://img.shields.io/badge/Documentation-Google_Docs-EA4335?style=for-the-badge&logo=google-docs&logoColor=white" alt="Documentation"/></a>
+    <a href="https://www.figma.com/design/UamtqxiDJKrvsQHnHENeFs/Parent-App?node-id=0-1&t=8DO0y4AMdGC7fp55-1"><img src="https://img.shields.io/badge/UI_Design-Figma-F24E1E?style=for-the-badge&logo=figma&logoColor=white" alt="Figma Design"/></a>
+    <a href="https://drive.google.com/drive/folders/1lZW4yZSBHv25OFWngDQWTb3M-rbwzze3?usp=sharing"><img src="https://img.shields.io/badge/Project_Drive-Storage-FFBA08?style=for-the-badge&logo=googledrive&logoColor=white" alt="Google Drive Folder"/></a>
+  </p>
 </div>
 
 ## 📌 Overview
