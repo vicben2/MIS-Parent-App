@@ -36,12 +36,26 @@ const APP_RELEASE_NOTES = process.env.APP_RELEASE_NOTES || 'Optimizations for Pa
 
 // Your version endpoint should look like this
 app.get('/api/app/version', (req, res) => {
-    res.status(200).json({
-        latestVersionCode: APP_VERSION_CODE,
-        latestVersionName: APP_VERSION_NAME,
-        remarks: UPDATE_REMARKS,
-        downloadUrl: DOWNLOAD_LINK
-    });
+    try {
+        // Fallback variables declared locally inside the scope to guarantee they exist
+        const code = typeof APP_VERSION_CODE !== 'undefined' ? APP_VERSION_CODE : 2;
+        const name = typeof APP_VERSION_NAME !== 'undefined' ? APP_VERSION_NAME : '1.0.1';
+        const notes = typeof APP_RELEASE_NOTES !== 'undefined' ? APP_RELEASE_NOTES : 'Optimizations for Parent Feature modules.';
+        const url = typeof APP_APK_URL !== 'undefined' ? APP_APK_URL : 'https://github.com/semi-naan/MIS-Parent-Application/releases';
+
+        res.status(200).json({
+            latestVersionCode: Number(code),
+            latestVersionName: String(name),
+            remarks: String(notes),
+            downloadUrl: String(url)
+        });
+    } catch (error) {
+        console.error("CRITICAL VERSION ENDPOINT CRASH:", error.message);
+        res.status(500).json({
+            error: "Internal server testing crash",
+            details: error.message
+        });
+    }
 });
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
