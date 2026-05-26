@@ -81,9 +81,9 @@ class UserRepository(private val userDao: UserDAO) {
     suspend fun isUserLoggedIn(): Boolean = withContext(Dispatchers.IO) {
         val user = userDao.getCurrentUser() ?: return@withContext false
         
-        // STRICT CHECK: The user MUST have a session token from the new server.
-        // If the token is null (e.g. old local user), we force a logout.
-        if (user.sessionToken == null) {
+        // STRICT CHECK: The user MUST have a session token from the server.
+        // If the token is missing, we clear the user to be safe.
+        if (user.sessionToken.isNullOrBlank()) {
             userDao.clearUsers()
             return@withContext false
         }

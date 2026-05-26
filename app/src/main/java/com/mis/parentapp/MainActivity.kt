@@ -32,6 +32,7 @@ import com.mis.parentapp.navigation.OtpSignIn
 import com.mis.parentapp.navigation.PasswordSignIn
 import com.mis.parentapp.navigation.SignIn
 import com.mis.parentapp.shared.AppSettingsViewModel
+import kotlinx.coroutines.launch
 import com.mis.parentapp.shared.ThemeMode
 import com.mis.parentapp.ui.theme.ParentAppTheme
 
@@ -78,12 +79,12 @@ fun AppNavigation(windowSizeClass: androidx.compose.material3.windowsizeclass.Wi
     // --- INITIALIZE SERVER-SIDE SESSION LISTENER ---
     androidx.compose.runtime.LaunchedEffect(Unit) {
         RetrofitInstance.setUnauthorizedCallback {
-            // This runs on a background thread from OkHttp interceptor
-            // Use AuthViewModel or similar to clear local data
-            authViewModel.signOut {
-                // Return to login screen on the main thread
-                navController.navigate(OnBoarding) {
-                    popUpTo(0) { inclusive = true }
+            // Ensure navigation happens on the Main Thread
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                authViewModel.signOut {
+                    navController.navigate(OnBoarding) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             }
         }
