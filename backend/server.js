@@ -166,10 +166,28 @@ app.post('/api/auth/resend-otp', asyncHandler(async (req, res) => {
 // ==========================================
 
 app.get('/api/parent/dashboard', asyncHandler(async (req, res) => {
-    const parentId = Number(req.query.parentId);
-    if (!parentId) return res.status(400).json({ error: 'parentId required' });
-    const dashboard = await buildDashboard(parentId);
-    res.json(dashboard);
+    try {
+        // Use provided parentId, or default to 1, or fallback to the first parent in DB
+        let parentId = Number(req.query.parentId);
+
+        if (!parentId) {
+            const firstParent = await get('SELECT id FROM parents ORDER BY id LIMIT 1');
+            parentId = firstParent ? firstParent.id : 1;
+        }
+
+        console.log(`Fetching dashboard for parentId: ${parentId}`);
+        const dashboard = await buildDashboard(parentId);
+
+        if (!dashboard) {
+            console.error(`Dashboard data null for parentId: ${parentId}`);
+            return res.status(404).json({ error: 'Parent dashboard data not found' });
+        }
+
+        res.json(dashboard);
+    } catch (error) {
+        console.error('Dashboard route crash:', error.message);
+        res.status(500).json({ error: 'Internal Server Error loading dashboard' });
+    }
 }));
 
 app.get('/api/parent/security', asyncHandler(async (req, res) => {
@@ -365,10 +383,15 @@ async function buildDashboard(parentId) {
     const children = (await Promise.all(parent.children.map(id => getStudent(id)))).filter(Boolean);
     const totalUnread = await get('SELECT COUNT(*) FROM notifications WHERE is_new = 1 AND (student_id IS NULL OR student_id = ANY($1))', [parent.children]);
 
+    const upcomingEvents = await all(
+        'SELECT title, date FROM calendar_events ORDER BY date LIMIT 3'
+    );
+
     return {
         parent,
         children,
-        unreadAnnouncements: Number(totalUnread.count || 0)
+        unreadAnnouncements: Number(totalUnread.count || 0),
+        upcomingEvents: upcomingEvents.map(e => `${e.title} - ${e.date}`)
     };
 }
 
