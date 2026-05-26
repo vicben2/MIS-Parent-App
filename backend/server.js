@@ -280,6 +280,18 @@ app.get('/api/notifications', authenticate, asyncHandler(async (req, res) => {
     })));
 }));
 
+app.get('/api/announcements', authenticate, asyncHandler(async (req, res) => {
+    const rows = await all('SELECT * FROM notifications WHERE student_id IS NULL ORDER BY is_new DESC, id DESC');
+    res.json(rows.map(item => ({
+        id: item.id,
+        title: item.type,
+        content: item.text,
+        category: item.category,
+        urgent: Boolean(item.is_new),
+        imageUrl: item.image_url || null
+    })));
+}));
+
 app.get('/api/calendar', authenticate, asyncHandler(async (req, res) => {
     const studentId = req.query.studentId ? Number(req.query.studentId) : null;
     const rows = await all(
