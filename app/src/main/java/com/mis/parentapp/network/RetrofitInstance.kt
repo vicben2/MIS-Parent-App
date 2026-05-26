@@ -7,7 +7,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object RetrofitInstance {
-    const val BASE_URL = BuildConfig.API_BASE_URL
+    val BASE_URL = BuildConfig.API_BASE_URL
 
     fun resolveMediaUrl(url: String?): String? {
         val cleanUrl = url?.trim().orEmpty()

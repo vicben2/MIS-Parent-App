@@ -1,5 +1,6 @@
 package com.mis.parentapp.network
 
+import com.mis.parentapp.BuildConfig
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
@@ -20,7 +21,7 @@ interface FacultyChatApiService {
 }
 
 object FacultyChatRetrofit {
-    const val BASE_URL = "https://eldroid-backend-express.onrender.com/"
+    val BASE_URL = BuildConfig.FACULTY_CHAT_BASE_URL
 
     val api: FacultyChatApiService by lazy {
         Retrofit.Builder()
@@ -30,4 +31,3 @@ object FacultyChatRetrofit {
             .create(FacultyChatApiService::class.java)
     }
 }
-

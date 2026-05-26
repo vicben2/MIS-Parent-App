@@ -12,10 +12,16 @@ android {
     namespace = "com.mis.parentapp"
     compileSdk = 37
 
-    val localApiUrl = "https://mis-parent-app-production.up.railway.app/"
-    val deployedApiUrl = (project.findProperty("PARENT_APP_API_URL") as String?)
-        ?.takeIf { it.isNotBlank() }
-        ?: localApiUrl
+    val localProperties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use { localProperties.load(it) }
+    }
+
+    val primaryApiUrl = localProperties.getProperty("API_BASE_URL") 
+        ?: "https://mis-parent-app-production.up.railway.app/"
+    val facultyChatApiUrl = localProperties.getProperty("FACULTY_CHAT_BASE_URL")
+        ?: "https://eldroid-backend-express.onrender.com/"
 
     defaultConfig {
         applicationId = "com.mis.parentapp"
@@ -25,13 +31,10 @@ android {
         versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "API_BASE_URL", "\"$deployedApiUrl\"")
+        buildConfigField("String", "API_BASE_URL", "\"$primaryApiUrl\"")
+        buildConfigField("String", "FACULTY_CHAT_BASE_URL", "\"$facultyChatApiUrl\"")
     }
-    val localProperties = Properties()
-    val localPropertiesFile = rootProject.file("local.properties")
-    if (localPropertiesFile.exists()) {
-        localProperties.load(FileInputStream(localPropertiesFile))
-    }
+
     signingConfigs {
         create("release") {
             storeFile = localProperties.getProperty("KEYSTORE_FILE")?.let { file(it) }

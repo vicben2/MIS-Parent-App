@@ -107,7 +107,7 @@ The project follows a **Client-Server architecture** with a modern mobile fronte
 2. **Installation:** Allow "Unknown Sources" in Android Settings.
 3. **Sign-in username:** jordan 
 4. **Sign-in password:** parent123
-5. **Debug Auto-Login:** The app includes a debug bypass for development (`dev_tester` account).
+
 
 ### Backend (Railway)
 1. **Repository:** Connect the `backend/` directory to a Railway project.
