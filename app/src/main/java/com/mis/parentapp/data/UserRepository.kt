@@ -81,15 +81,16 @@ class UserRepository(private val userDao: UserDAO) {
     suspend fun isUserLoggedIn(): Boolean = withContext(Dispatchers.IO) {
         val user = userDao.getCurrentUser() ?: return@withContext false
         
-        // Restore token to networking layer if it exists
-        if (user.sessionToken != null) {
-            RetrofitInstance.setAuthToken(user.sessionToken)
+        // STRICT CHECK: The user MUST have a session token from the new server.
+        // If the token is null (e.g. old local user), we force a logout.
+        if (user.sessionToken == null) {
+            userDao.clearUsers()
+            return@withContext false
         }
         
-        // WE NO LONGER DO HARDCODED EXPIRATION CHECKS HERE.
-        // The server (server.js) now manages the TTL. 
-        // If the session is expired, RetrofitInstance will receive a 401 
-        // and trigger the logout.
+        // Restore token to networking layer
+        RetrofitInstance.setAuthToken(user.sessionToken)
+
         true
     }
 

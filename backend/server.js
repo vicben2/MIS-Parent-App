@@ -30,8 +30,8 @@ const OTP_SECRET = process.env.OTP_SECRET || process.env.JWT_SECRET || 'mis-pare
 const SESSION_TTL_HOURS = Number(process.env.SESSION_TTL_HOURS || 72);
 
 // System Constants
-const APP_VERSION_CODE = Number(process.env.APP_VERSION_CODE || 2);
-const APP_VERSION_NAME = process.env.APP_VERSION_NAME || '1.0.1';
+const APP_VERSION_CODE = Number(process.env.APP_VERSION_CODE || 3);
+const APP_VERSION_NAME = process.env.APP_VERSION_NAME || '1.0.2';
 const APP_APK_URL = process.env.APP_APK_URL || '';
 const APP_RELEASE_NOTES = process.env.APP_RELEASE_NOTES || 'Production release.';
 
