@@ -1,5 +1,6 @@
 package com.mis.parentapp.network
 
+import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Body
 import retrofit2.http.POST
@@ -86,4 +87,7 @@ interface ApiService {
 
     @POST("api/feedback")
     suspend fun submitFeedback(@Body request: FeedbackRequest): FeedbackResponse
+
+    @POST("api/auth/logout")
+    suspend fun logout(): Response<Unit>
 }

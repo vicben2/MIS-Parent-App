@@ -1,6 +1,11 @@
 package com.mis.parentapp.network
 
+import android.content.Context
 import com.mis.parentapp.BuildConfig
+import com.mis.parentapp.data.AppDatabase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -8,6 +13,18 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitInstance {
     val BASE_URL = BuildConfig.API_BASE_URL
+    
+    // Static state to hold the current session token
+    private var sessionToken: String? = null
+    private var onUnauthorized: (() -> Unit)? = null
+
+    fun setAuthToken(token: String?) {
+        sessionToken = token
+    }
+
+    fun setUnauthorizedCallback(callback: () -> Unit) {
+        onUnauthorized = callback
+    }
 
     fun resolveMediaUrl(url: String?): String? {
         val cleanUrl = url?.trim().orEmpty()
@@ -24,11 +41,23 @@ object RetrofitInstance {
             .callTimeout(90, TimeUnit.SECONDS)
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
-                val newRequest = originalRequest.newBuilder()
+                val requestBuilder = originalRequest.newBuilder()
                     .header("Cache-Control", "no-cache, no-store, must-revalidate")
                     .header("Pragma", "no-cache")
-                    .build()
-                chain.proceed(newRequest)
+                
+                // Automatically attach Bearer token if available
+                sessionToken?.let {
+                    requestBuilder.header("Authorization", "Bearer $it")
+                }
+                
+                val response = chain.proceed(requestBuilder.build())
+                
+                // If server returns 401, trigger the unauthorized callback
+                if (response.code == 401) {
+                    onUnauthorized?.invoke()
+                }
+                
+                response
             }
             .build()
     }

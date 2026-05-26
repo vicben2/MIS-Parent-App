@@ -15,6 +15,7 @@ sealed class LoginResult {
 }
 
 class UserRepository(private val userDao: UserDAO) {
+    
     suspend fun login(username: String, pass: String): Result<LoginResult> = withContext(Dispatchers.IO) {
         try {
             val response = RetrofitInstance.api.login(
@@ -57,39 +58,48 @@ class UserRepository(private val userDao: UserDAO) {
 
     private suspend fun saveLoggedInUser(username: String, pass: String, response: LoginResponse): UserEntity {
         val currentTime = System.currentTimeMillis()
-        val existingUser = userDao.getCurrentUser()
-        return if (existingUser?.username == username) {
-            userDao.updateLoginTime(username, currentTime)
-            existingUser.copy(lastLoginTime = currentTime)
-        } else {
-            val parent = response.parent
-            val newUser = UserEntity(
-                username = username,
-                password = pass,
-                fullName = parent?.name,
-                email = parent?.email,
-                phoneNumber = parent?.phone,
-                lastLoginTime = currentTime
-            )
-            userDao.registerUser(newUser)
-            newUser
-        }
+        
+        // Notify Networking layer of the new token
+        RetrofitInstance.setAuthToken(response.token)
+        
+        val parent = response.parent
+        val newUser = UserEntity(
+            username = username,
+            password = pass,
+            fullName = parent?.name,
+            email = parent?.email,
+            phoneNumber = parent?.phone,
+            lastLoginTime = currentTime,
+            sessionToken = response.token
+        )
+        
+        userDao.clearUsers() // Clear previous sessions
+        userDao.registerUser(newUser)
+        return newUser
     }
 
     suspend fun isUserLoggedIn(): Boolean = withContext(Dispatchers.IO) {
         val user = userDao.getCurrentUser() ?: return@withContext false
-        val currentTime = System.currentTimeMillis()
-        val seventyTwoHoursInMillis = 72 * 60 * 60 * 1000L
-
-        if (currentTime - user.lastLoginTime > seventyTwoHoursInMillis) {
-            userDao.clearUsers()
-            false
-        } else {
-            true
+        
+        // Restore token to networking layer if it exists
+        if (user.sessionToken != null) {
+            RetrofitInstance.setAuthToken(user.sessionToken)
         }
+        
+        // WE NO LONGER DO HARDCODED EXPIRATION CHECKS HERE.
+        // The server (server.js) now manages the TTL. 
+        // If the session is expired, RetrofitInstance will receive a 401 
+        // and trigger the logout.
+        true
     }
 
     suspend fun signOut() = withContext(Dispatchers.IO) {
+        try {
+            // Attempt to notify server of logout
+            RetrofitInstance.api.logout()
+        } catch (_: Exception) {}
+        
+        RetrofitInstance.setAuthToken(null)
         userDao.clearUsers()
     }
 }

@@ -139,6 +139,8 @@ fun Body(
 
     LaunchedEffect(Unit) {
         try {
+            // Note: getDashboard() no longer needs parentId as param
+            // it is inferred from the session token on the server.
             val dashboard = RetrofitInstance.api.getDashboard()
             studentVM?.updateStudents(dashboard.children, dashboard.unreadAnnouncements)
             dashboardError = null

@@ -26,6 +26,9 @@ const UPLOAD_DIR = path.join(__dirname, 'data', 'uploads');
 const OTP_TTL_MINUTES = Number(process.env.OTP_TTL_MINUTES || 15);
 const OTP_SECRET = process.env.OTP_SECRET || process.env.JWT_SECRET || 'mis-parent-app-prod-secret';
 
+// SERVER-SIDE SESSION CONFIGURATION
+const SESSION_TTL_HOURS = Number(process.env.SESSION_TTL_HOURS || 72);
+
 // System Constants
 const APP_VERSION_CODE = Number(process.env.APP_VERSION_CODE || 2);
 const APP_VERSION_NAME = process.env.APP_VERSION_NAME || '1.0.1';
@@ -51,12 +54,35 @@ function asyncHandler(handler) {
     return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 }
 
+/**
+ * Authentication Middleware
+ * Validates the token against the Postgres 'sessions' table
+ */
+const authenticate = asyncHandler(async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'Authentication required' });
+
+    const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader;
+
+    const session = await get(
+        'SELECT * FROM sessions WHERE token = $1 AND expires_at > CURRENT_TIMESTAMP',
+        [token]
+    );
+
+    if (!session) {
+        return res.status(401).json({ error: 'Session expired. Please log in again.' });
+    }
+
+    req.parentId = session.parent_id;
+    req.sessionToken = token;
+    next();
+});
+
 // ==========================================
 // SYSTEM & HEALTH ENDPOINTS
 // ==========================================
 
 app.get('/api/health', asyncHandler(async (req, res) => {
-    // Basic connectivity check
     await pool.query('SELECT 1');
     res.json({ status: "healthy", database: "postgres", timestamp: new Date().toISOString() });
 }));
@@ -96,6 +122,18 @@ app.post('/api/feedback', asyncHandler(async (req, res) => {
 // AUTHENTICATION ENDPOINTS
 // ==========================================
 
+async function createSession(parentId) {
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + SESSION_TTL_HOURS);
+
+    await run(
+        'INSERT INTO sessions (token, parent_id, expires_at) VALUES ($1, $2, $3)',
+        [token, parentId, expiresAt.toISOString()]
+    );
+    return token;
+}
+
 app.post('/api/auth/login', asyncHandler(async (req, res) => {
     const { username, password } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
@@ -115,10 +153,11 @@ app.post('/api/auth/login', asyncHandler(async (req, res) => {
         return res.json({ requiresTwoFactor: true, ...otp, parent });
     }
 
+    const token = await createSession(account.parent_id);
     const dashboard = await buildDashboard(account.parent_id);
     res.json({
         requiresTwoFactor: false,
-        token: `session-${crypto.randomBytes(16).toString('hex')}`,
+        token: token,
         parent,
         dashboard
     });
@@ -138,9 +177,17 @@ app.post('/api/auth/verify-otp', asyncHandler(async (req, res) => {
     }
 
     await run('UPDATE login_otps SET used = 1 WHERE id = $1', [otp.id]);
+
+    const token = await createSession(otp.parent_id);
     const parent = await getParent(otp.parent_id);
     const dashboard = await buildDashboard(otp.parent_id);
-    res.json({ requiresTwoFactor: false, token: `session-${crypto.randomBytes(16).toString('hex')}`, parent, dashboard });
+
+    res.json({
+        requiresTwoFactor: false,
+        token: token,
+        parent,
+        dashboard
+    });
 }));
 
 app.post('/api/auth/resend-otp', asyncHandler(async (req, res) => {
@@ -162,19 +209,12 @@ app.post('/api/auth/resend-otp', asyncHandler(async (req, res) => {
 }));
 
 // ==========================================
-// DATA ACCESS ENDPOINTS
+// DATA ACCESS ENDPOINTS (PROTECTED BY AUTH)
 // ==========================================
 
-app.get('/api/parent/dashboard', asyncHandler(async (req, res) => {
+app.get('/api/parent/dashboard', authenticate, asyncHandler(async (req, res) => {
     try {
-        // Use provided parentId, or default to 1, or fallback to the first parent in DB
-        let parentId = Number(req.query.parentId);
-
-        if (!parentId) {
-            const firstParent = await get('SELECT id FROM parents ORDER BY id LIMIT 1');
-            parentId = firstParent ? firstParent.id : 1;
-        }
-
+        const parentId = req.parentId;
         console.log(`Fetching dashboard for parentId: ${parentId}`);
         const dashboard = await buildDashboard(parentId);
 
@@ -190,8 +230,8 @@ app.get('/api/parent/dashboard', asyncHandler(async (req, res) => {
     }
 }));
 
-app.get('/api/parent/security', asyncHandler(async (req, res) => {
-    const parentId = Number(req.query.parentId || 1);
+app.get('/api/parent/security', authenticate, asyncHandler(async (req, res) => {
+    const parentId = req.parentId;
     const parent = await get('SELECT id, email, phone, two_factor_enabled FROM parents WHERE id = $1', [parentId]);
     if (!parent) return res.status(404).json({ error: 'Parent not found' });
     res.json({
@@ -202,8 +242,8 @@ app.get('/api/parent/security', asyncHandler(async (req, res) => {
     });
 }));
 
-app.patch('/api/parent/security', asyncHandler(async (req, res) => {
-    const parentId = Number(req.body?.parentId || 1);
+app.patch('/api/parent/security', authenticate, asyncHandler(async (req, res) => {
+    const parentId = req.parentId;
     const enabled = req.body?.twoFactorEnabled ? 1 : 0;
     const updated = await get(
         `UPDATE parents SET two_factor_enabled = $1 WHERE id = $2 RETURNING id, email, phone, two_factor_enabled`,
@@ -218,7 +258,7 @@ app.patch('/api/parent/security', asyncHandler(async (req, res) => {
     });
 }));
 
-app.get('/api/notifications', asyncHandler(async (req, res) => {
+app.get('/api/notifications', authenticate, asyncHandler(async (req, res) => {
     const studentId = req.query.studentId ? Number(req.query.studentId) : null;
     const rows = await all(
         `SELECT * FROM notifications WHERE student_id IS NULL OR student_id = $1 ORDER BY is_new DESC, id DESC`,
@@ -237,7 +277,7 @@ app.get('/api/notifications', asyncHandler(async (req, res) => {
     })));
 }));
 
-app.get('/api/calendar', asyncHandler(async (req, res) => {
+app.get('/api/calendar', authenticate, asyncHandler(async (req, res) => {
     const studentId = req.query.studentId ? Number(req.query.studentId) : null;
     const rows = await all(
         `SELECT * FROM calendar_events WHERE student_id IS NULL OR student_id = $1 ORDER BY date ASC, time ASC`,
@@ -256,23 +296,23 @@ app.get('/api/calendar', asyncHandler(async (req, res) => {
     })));
 }));
 
-app.get('/api/student/:id/attendance', asyncHandler(async (req, res) => {
+app.get('/api/student/:id/attendance', authenticate, asyncHandler(async (req, res) => {
     const rows = await all('SELECT * FROM attendance_subjects WHERE student_id = $1 ORDER BY id', [req.params.id]);
     res.json(rows.map(mapAttendance));
 }));
 
-app.get('/api/student/:id/grades', asyncHandler(async (req, res) => {
+app.get('/api/student/:id/grades', authenticate, asyncHandler(async (req, res) => {
     const rows = await all('SELECT * FROM academic_grades WHERE student_id = $1 ORDER BY id', [req.params.id]);
     res.json(rows.map(mapGrade));
 }));
 
-app.get('/api/student/:id/academic-performance', asyncHandler(async (req, res) => {
+app.get('/api/student/:id/academic-performance', authenticate, asyncHandler(async (req, res) => {
     const rows = await all('SELECT * FROM academic_performance WHERE student_id = $1 ORDER BY id', [req.params.id]);
     res.json(rows.map(mapAcademicPerformance));
 }));
 
-app.patch('/api/parent/profile', asyncHandler(async (req, res) => {
-    const parentId = Number(req.body?.parentId);
+app.patch('/api/parent/profile', authenticate, asyncHandler(async (req, res) => {
+    const parentId = req.parentId;
     let profileImageUrl = req.body?.profileImageUrl;
 
     if (typeof req.body?.profileImageData === 'string' && req.body.profileImageData.trim() !== '') {
@@ -285,6 +325,11 @@ app.patch('/api/parent/profile', asyncHandler(async (req, res) => {
         [nullableString(req.body?.email), nullableString(req.body?.phone), profileImageUrl, parentId]
     );
     res.json(await getParent(updated.id));
+}));
+
+app.post('/api/auth/logout', authenticate, asyncHandler(async (req, res) => {
+    await run('DELETE FROM sessions WHERE token = $1', [req.sessionToken]);
+    res.json({ success: true, message: 'Logged out successfully' });
 }));
 
 // ==========================================
@@ -545,6 +590,16 @@ async function initDatabase() {
             message TEXT NOT NULL,
             app_version TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `);
+
+    // 9. SESSIONS (Server-side management)
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY,
+            parent_id INTEGER NOT NULL REFERENCES parents(id),
+            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
     `);
 

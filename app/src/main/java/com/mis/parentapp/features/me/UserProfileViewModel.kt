@@ -132,6 +132,7 @@ class UserProfileViewModel(application: Application) : AndroidViewModel(applicat
 
     private suspend fun loadSecuritySettings() {
         runCatching {
+            // parentId is now inferred from session token
             RetrofitInstance.api.getParentSecurity()
         }.onSuccess {
             twoFactorEnabled = it.twoFactorEnabled

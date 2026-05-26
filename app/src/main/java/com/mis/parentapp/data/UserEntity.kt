@@ -13,7 +13,8 @@ data class UserEntity(
     val phoneNumber: String? = null,
     val profileImageUri: String? = null,
     val profileImageBlob: ByteArray? = null,
-    val lastLoginTime: Long = 0L
+    val lastLoginTime: Long = 0L,
+    val sessionToken: String? = null
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

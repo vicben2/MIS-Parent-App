@@ -26,6 +26,7 @@ import com.mis.parentapp.features.auth.OtpSignInScreen
 import com.mis.parentapp.features.auth.PasswordSignInScreen
 import com.mis.parentapp.features.auth.UsernameSignInScreen
 import com.mis.parentapp.navigation.MainContainer
+import com.mis.parentapp.network.RetrofitInstance
 import com.mis.parentapp.navigation.OnBoarding
 import com.mis.parentapp.navigation.OtpSignIn
 import com.mis.parentapp.navigation.PasswordSignIn
@@ -64,6 +65,20 @@ fun AppNavigation(windowSizeClass: androidx.compose.material3.windowsizeclass.Wi
     val database = remember { AppDatabase.getDatabase(context) }
     val userRepository = remember { UserRepository(database.userDao()) }
     val authViewModel = remember { AuthViewModel(userRepository) }
+
+    // --- INITIALIZE SERVER-SIDE SESSION LISTENER ---
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        RetrofitInstance.setUnauthorizedCallback {
+            // This runs on a background thread from OkHttp interceptor
+            // Use AuthViewModel or similar to clear local data
+            authViewModel.signOut {
+                // Return to login screen on the main thread
+                navController.navigate(OnBoarding) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        }
+    }
 
 
     NavHost(navController = navController, startDestination = OnBoarding) {
