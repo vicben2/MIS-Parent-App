@@ -66,6 +66,15 @@ fun AppNavigation(windowSizeClass: androidx.compose.material3.windowsizeclass.Wi
     val userRepository = remember { UserRepository(database.userDao()) }
     val authViewModel = remember { AuthViewModel(userRepository) }
 
+    // --- REDIRECT TO DASHBOARD IF ALREADY LOGGED IN ---
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (authViewModel.isUserLoggedIn()) {
+            navController.navigate(MainContainer) {
+                popUpTo(OnBoarding) { inclusive = true }
+            }
+        }
+    }
+
     // --- INITIALIZE SERVER-SIDE SESSION LISTENER ---
     androidx.compose.runtime.LaunchedEffect(Unit) {
         RetrofitInstance.setUnauthorizedCallback {
