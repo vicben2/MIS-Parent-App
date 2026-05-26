@@ -1,7 +1,5 @@
 package com.mis.parentapp.network
 
-import okhttp3.ResponseBody
-import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Body
 import retrofit2.http.POST
@@ -88,19 +86,4 @@ interface ApiService {
 
     @POST("api/feedback")
     suspend fun submitFeedback(@Body request: FeedbackRequest): FeedbackResponse
-
-    @POST("api/2fa/send")
-    suspend fun send2FACode(
-        @Body body: Map<String, String>
-    ): Response<ResponseBody>
-
-    @POST("api/2fa/verify")
-    suspend fun verify2FACode(
-        @Body body: Map<String, String>
-    ): Response<ResponseBody>
-
-    @POST("api/2fa/toggle")
-    suspend fun toggle2FA(
-        @Body body: Map<String, @JvmSuppressWildcards Any>
-    ): Response<ResponseBody>
 }

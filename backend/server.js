@@ -143,6 +143,24 @@ app.post('/api/auth/verify-otp', asyncHandler(async (req, res) => {
     res.json({ requiresTwoFactor: false, token: `session-${crypto.randomBytes(16).toString('hex')}`, parent, dashboard });
 }));
 
+app.post('/api/auth/resend-otp', asyncHandler(async (req, res) => {
+    const { otpToken } = req.body || {};
+    const currentOtp = await get('SELECT * FROM login_otps WHERE id = $1', [otpToken]);
+
+    if (!currentOtp || currentOtp.used) {
+        return res.status(401).json({ error: 'Invalid or expired verification code' });
+    }
+
+    const parent = await getParent(currentOtp.parent_id);
+    try {
+        await run('UPDATE login_otps SET used = 1 WHERE id = $1', [currentOtp.id]);
+        const otp = await issueLoginOtp(parent);
+        return res.json({ ...otp });
+    } catch (error) {
+        return res.status(503).json({ error: error.message });
+    }
+}));
+
 // ==========================================
 // DATA ACCESS ENDPOINTS
 // ==========================================
@@ -152,6 +170,34 @@ app.get('/api/parent/dashboard', asyncHandler(async (req, res) => {
     if (!parentId) return res.status(400).json({ error: 'parentId required' });
     const dashboard = await buildDashboard(parentId);
     res.json(dashboard);
+}));
+
+app.get('/api/parent/security', asyncHandler(async (req, res) => {
+    const parentId = Number(req.query.parentId || 1);
+    const parent = await get('SELECT id, email, phone, two_factor_enabled FROM parents WHERE id = $1', [parentId]);
+    if (!parent) return res.status(404).json({ error: 'Parent not found' });
+    res.json({
+        parentId: parent.id,
+        email: parent.email,
+        phone: parent.phone,
+        twoFactorEnabled: Boolean(parent.two_factor_enabled)
+    });
+}));
+
+app.patch('/api/parent/security', asyncHandler(async (req, res) => {
+    const parentId = Number(req.body?.parentId || 1);
+    const enabled = req.body?.twoFactorEnabled ? 1 : 0;
+    const updated = await get(
+        `UPDATE parents SET two_factor_enabled = $1 WHERE id = $2 RETURNING id, email, phone, two_factor_enabled`,
+        [enabled, parentId]
+    );
+    if (!updated) return res.status(404).json({ error: 'Parent not found' });
+    res.json({
+        parentId: updated.id,
+        email: updated.email,
+        phone: updated.phone,
+        twoFactorEnabled: Boolean(updated.two_factor_enabled)
+    });
 }));
 
 app.get('/api/notifications', asyncHandler(async (req, res) => {
@@ -350,7 +396,7 @@ function mapAttendance(r) { return { id: r.id, studentId: r.student_id, subjectN
 function mapAcademicPerformance(r) { return { id: r.id, studentId: r.student_id, type: r.type, title: r.title, subject: r.subject, teacher: r.teacher, summary: r.summary, details: r.details, criteria: r.criteria, imageUrl: r.image_url, score: r.score, status: r.status, assignedDate: r.assigned_date, dueDate: r.due_date, timeAgo: r.time_ago, isPositive: Boolean(r.is_positive) }; }
 
 function saveBase64Image(base64Data, mimeType, prefix) {
-    const ext = mimeType?.includes('png') ? 'png' : 'jpg';
+    const ext = mimeType.includes('png') ? 'png' : 'jpg';
     const name = `${prefix}-${Date.now()}.${ext}`;
     fs.writeFileSync(path.join(UPLOAD_DIR, name), Buffer.from(base64Data, 'base64'));
     return `/media/uploads/${name}`;
@@ -359,10 +405,134 @@ function saveBase64Image(base64Data, mimeType, prefix) {
 function nullableString(v) { return (v === undefined || v === null) ? null : String(v).trim(); }
 
 // ==========================================
-// STARTUP
+// STARTUP & INITIALIZATION
 // ==========================================
 
-app.listen(PORT, () => console.log(`MIS Backend running on port ${PORT}`));
+async function initDatabase() {
+    console.log("Checking database schema...");
+
+    // 1. parents
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS parents (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL,
+            phone TEXT NOT NULL,
+            profile_image_url TEXT NOT NULL DEFAULT '',
+            background_image_url TEXT NOT NULL DEFAULT '',
+            two_factor_enabled INTEGER NOT NULL DEFAULT 0
+        );
+    `);
+
+    // 2. parent_accounts
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS parent_accounts (
+            id SERIAL PRIMARY KEY,
+            username TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL,
+            parent_id INTEGER NOT NULL REFERENCES parents(id)
+        );
+    `);
+
+    // 3. login_otps
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS login_otps (
+            id TEXT PRIMARY KEY,
+            parent_id INTEGER NOT NULL REFERENCES parents(id),
+            code_hash TEXT NOT NULL,
+            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            used INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+    `);
+
+    // 4. students
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS students (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            roll_number TEXT NOT NULL,
+            grade TEXT NOT NULL,
+            section TEXT NOT NULL,
+            program TEXT NOT NULL,
+            course TEXT NOT NULL,
+            year TEXT NOT NULL,
+            class_teacher TEXT NOT NULL,
+            attendance TEXT NOT NULL,
+            gpa DOUBLE PRECISION NOT NULL,
+            pending_payments INTEGER NOT NULL DEFAULT 0,
+            profile_image_url TEXT NOT NULL DEFAULT '',
+            background_image_url TEXT NOT NULL DEFAULT ''
+        );
+    `);
+
+    // 5. parent_students (junction)
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS parent_students (
+            parent_id INTEGER NOT NULL REFERENCES parents(id),
+            student_id INTEGER NOT NULL REFERENCES students(id),
+            PRIMARY KEY(parent_id, student_id)
+        );
+    `);
+
+    // 6. academic_performance
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS academic_performance (
+            id SERIAL PRIMARY KEY,
+            student_id INTEGER NOT NULL REFERENCES students(id),
+            type TEXT NOT NULL,
+            title TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            teacher TEXT NOT NULL,
+            summary TEXT NOT NULL,
+            details TEXT NOT NULL,
+            criteria TEXT NOT NULL,
+            image_url TEXT,
+            score TEXT,
+            status TEXT NOT NULL,
+            assigned_date TEXT NOT NULL,
+            due_date TEXT NOT NULL,
+            time_ago TEXT NOT NULL,
+            is_positive BOOLEAN NOT NULL DEFAULT TRUE
+        );
+    `);
+
+    // 7. notifications
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS notifications (
+            id SERIAL PRIMARY KEY,
+            student_id INTEGER REFERENCES students(id),
+            text TEXT NOT NULL,
+            type TEXT NOT NULL,
+            time TEXT NOT NULL,
+            category TEXT NOT NULL,
+            is_new INTEGER NOT NULL DEFAULT 0,
+            image_url TEXT NOT NULL DEFAULT '',
+            is_positive INTEGER NOT NULL DEFAULT 1
+        );
+    `);
+
+    // 8. feedback
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS parent_app_feedback (
+            id SERIAL PRIMARY KEY,
+            user_email TEXT,
+            feedback_type TEXT NOT NULL,
+            message TEXT NOT NULL,
+            app_version TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `);
+
+    console.log("Database initialized successfully.");
+}
+
+initDatabase().then(() => {
+    app.listen(PORT, () => console.log(`MIS Backend running on port ${PORT}`));
+}).catch(err => {
+    console.error("Database initialization failed:", err);
+});
 
 // Global Error Handler
 app.use((err, req, res, next) => {
