@@ -64,18 +64,23 @@ const authenticate = asyncHandler(async (req, res, next) => {
 
     const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader;
 
-    const session = await get(
-        'SELECT * FROM sessions WHERE token = $1 AND expires_at > CURRENT_TIMESTAMP',
-        [token]
-    );
+    try {
+        const session = await get(
+            'SELECT * FROM sessions WHERE token = $1 AND expires_at > CURRENT_TIMESTAMP',
+            [token]
+        );
 
-    if (!session) {
-        return res.status(401).json({ error: 'Session expired. Please log in again.' });
+        if (!session) {
+            return res.status(401).json({ error: 'Session expired. Please log in again.' });
+        }
+
+        req.parentId = session.parent_id;
+        req.sessionToken = token;
+        next();
+    } catch (err) {
+        console.error('Auth Middleware Error:', err.message);
+        res.status(500).json({ error: 'Database error during authentication' });
     }
-
-    req.parentId = session.parent_id;
-    req.sessionToken = token;
-    next();
 });
 
 // ==========================================
@@ -215,18 +220,16 @@ app.post('/api/auth/resend-otp', asyncHandler(async (req, res) => {
 app.get('/api/parent/dashboard', authenticate, asyncHandler(async (req, res) => {
     try {
         const parentId = req.parentId;
-        console.log(`Fetching dashboard for parentId: ${parentId}`);
         const dashboard = await buildDashboard(parentId);
 
         if (!dashboard) {
-            console.error(`Dashboard data null for parentId: ${parentId}`);
             return res.status(404).json({ error: 'Parent dashboard data not found' });
         }
 
         res.json(dashboard);
     } catch (error) {
-        console.error('Dashboard route crash:', error.message);
-        res.status(500).json({ error: 'Internal Server Error loading dashboard' });
+        console.error('Dashboard route error:', error.message);
+        res.status(500).json({ error: `Internal Server Error: ${error.message}` });
     }
 }));
 
@@ -600,6 +603,86 @@ async function initDatabase() {
             parent_id INTEGER NOT NULL REFERENCES parents(id),
             expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+    `);
+
+    // 10. Class Schedules
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS class_schedules (
+            id SERIAL PRIMARY KEY,
+            student_id INTEGER NOT NULL REFERENCES students(id),
+            subject TEXT NOT NULL,
+            room TEXT NOT NULL,
+            instructor TEXT NOT NULL,
+            day TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            end_time TEXT NOT NULL
+        );
+    `);
+
+    // 11. Study Load Subjects
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS study_load_subjects (
+            id SERIAL PRIMARY KEY,
+            student_id INTEGER NOT NULL REFERENCES students(id),
+            schedule_number TEXT NOT NULL,
+            course_number TEXT NOT NULL,
+            code TEXT NOT NULL,
+            title TEXT NOT NULL,
+            units INTEGER NOT NULL,
+            instructor TEXT NOT NULL,
+            schedule TEXT NOT NULL,
+            time TEXT NOT NULL,
+            days TEXT NOT NULL,
+            room TEXT NOT NULL,
+            remarks TEXT NOT NULL DEFAULT '',
+            semester TEXT NOT NULL,
+            school_year TEXT NOT NULL,
+            date_enrolled TEXT NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0
+        );
+    `);
+
+    // 12. Attendance Subjects
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS attendance_subjects (
+            id SERIAL PRIMARY KEY,
+            student_id INTEGER NOT NULL REFERENCES students(id),
+            subject_name TEXT NOT NULL,
+            instructor TEXT NOT NULL,
+            present_days INTEGER NOT NULL,
+            total_days INTEGER NOT NULL,
+            late_days INTEGER NOT NULL DEFAULT 0,
+            absent_days INTEGER NOT NULL DEFAULT 0
+        );
+    `);
+
+    // 13. Academic Grades
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS academic_grades (
+            id SERIAL PRIMARY KEY,
+            student_id INTEGER NOT NULL REFERENCES students(id),
+            subject_name TEXT NOT NULL,
+            units INTEGER NOT NULL,
+            grade DOUBLE PRECISION NOT NULL,
+            instructor TEXT NOT NULL,
+            remarks TEXT NOT NULL DEFAULT '',
+            term TEXT NOT NULL
+        );
+    `);
+
+    // 14. Calendar Events
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS calendar_events (
+            id SERIAL PRIMARY KEY,
+            student_id INTEGER REFERENCES students(id),
+            title TEXT NOT NULL,
+            category TEXT NOT NULL,
+            date TEXT NOT NULL,
+            time TEXT,
+            description TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Normal',
+            image_url TEXT NOT NULL DEFAULT ''
         );
     `);
 

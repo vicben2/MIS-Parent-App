@@ -145,7 +145,19 @@ fun Body(
             studentVM?.updateStudents(dashboard.children, dashboard.unreadAnnouncements)
             dashboardError = null
         } catch (e: Exception) {
-            dashboardError = "Unable to load server student data."
+            e.printStackTrace()
+            val errorMsg = if (e is retrofit2.HttpException) {
+                try {
+                    val errorBody = e.response()?.errorBody()?.string()
+                    val json = com.google.gson.Gson().fromJson(errorBody, com.google.gson.JsonObject::class.java)
+                    json.get("error").asString
+                } catch (_: Exception) {
+                    "Server Error: ${e.code()}"
+                }
+            } else {
+                e.localizedMessage ?: "Unknown connection error"
+            }
+            dashboardError = "Load Failed: $errorMsg"
         }
     }
 
